@@ -14,7 +14,7 @@ export default function CrearUsuarioExitoPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm font-medium text-slate-600">
-            Interfaz mock: el usuario fue registrado correctamente y queda pendiente de integracion backend.
+            El usuario fue registrado correctamente en el backend.
           </p>
           <Button asChild className="w-full font-semibold">
             <Link href="/login">Ir a inicio de sesion</Link>

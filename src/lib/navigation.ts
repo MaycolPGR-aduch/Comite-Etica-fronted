@@ -18,21 +18,29 @@ export const roleNavigation: Record<Role, NavItem[]> = {
     { href: "/investigador/dashboard", label: "Dashboard" },
     { href: "/investigador/expedientes/nuevo", label: "Nuevo expediente" },
     { href: "/investigador/expedientes", label: "Mis expedientes" },
+    { href: "/investigador/perfil", label: "Mi perfil" },
   ],
   secretaria: [
     { href: "/secretaria/bandeja", label: "Bandeja" },
     { href: "/secretaria/revision/exp-003", label: "Revision administrativa" },
+    { href: "/secretaria/perfil", label: "Mi perfil" },
   ],
   coordinador: [
     { href: "/coordinador/dashboard", label: "Dashboard" },
     { href: "/coordinador/asignacion/exp-004", label: "Asignacion" },
     { href: "/coordinador/consolidacion/exp-007", label: "Consolidacion" },
+    { href: "/coordinador/perfil", label: "Mi perfil" },
   ],
   evaluador: [
     { href: "/evaluador/bandeja", label: "Bandeja" },
-    { href: "/evaluador/evaluacion/exp-001", label: "Evaluacion etica" },
+    { href: "/evaluador/bandeja", label: "Evaluacion etica" },
+    { href: "/evaluador/perfil", label: "Mi perfil" },
   ],
-  administrador: [{ href: "/admin/configuracion", label: "Configuracion" }],
+  administrador: [
+    { href: "/admin/usuarios", label: "Usuarios" },
+    { href: "/admin/configuracion", label: "Configuracion" },
+    { href: "/admin/perfil", label: "Mi perfil" },
+  ],
 };
 
 export const resolveRoleFromPath = (pathname: string): Role => {

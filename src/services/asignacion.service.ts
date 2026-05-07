@@ -1,49 +1,70 @@
-import { expedientesMock, usuariosMock } from "@/mocks";
 import type { Expediente, Usuario } from "@/types";
 
-import { clone, wait } from "./service-utils";
+import { evaluacionService } from "./evaluacion.service";
+import { expedientesService } from "./expedientes.service";
+import { usersService } from "./users.service";
 
 export interface AsignacionPayload {
   expedienteId: string;
-  evaluadorIds: [string, string];
+  cantidad?: number;
 }
+
+const parseNumericId = (value: string, entityName: string): number => {
+  const direct = Number(value);
+  if (Number.isFinite(direct)) {
+    return direct;
+  }
+
+  const digits = value.match(/\d+/g)?.join("");
+  const fallback = Number(digits);
+
+  if (Number.isFinite(fallback)) {
+    return fallback;
+  }
+
+  throw new Error(`El identificador del ${entityName} no es valido.`);
+};
 
 export const asignacionService = {
   async getEvaluadoresDisponibles(): Promise<Usuario[]> {
-    await wait();
-    return clone(usuariosMock.filter((usuario) => usuario.role === "evaluador"));
+    const users = await usersService.list();
+
+    return users.filter(
+      (usuario) => usuario.role === "evaluador" && (usuario.activo ?? true),
+    );
   },
 
   async getExpedienteParaAsignacion(id: string): Promise<Expediente> {
-    await wait();
-    const expediente = expedientesMock.find((item) => item.id === id);
-
-    if (!expediente) {
-      throw new Error("Expediente no encontrado.");
-    }
-
-    return clone(expediente);
+    const expedienteId = parseNumericId(id, "expediente");
+    const detalle = await expedientesService.getById(String(expedienteId));
+    return detalle.expediente;
   },
 
   async asignarEvaluadores(payload: AsignacionPayload): Promise<{ message: string }> {
-    await wait();
+    const expedienteId = parseNumericId(payload.expedienteId, "expediente");
+    const objetivoTotal = 2;
 
-    if (payload.evaluadorIds.length !== 2) {
-      throw new Error("Debe asignar exactamente 2 evaluadores.");
-    }
-
-    const evaluadores = usuariosMock.filter((usuario) =>
-      payload.evaluadorIds.includes(usuario.id),
+    const evaluaciones = await evaluacionService.list();
+    const asignadas = evaluaciones.filter(
+      (item) => item.expedienteId === String(expedienteId),
     );
 
-    if (evaluadores.length !== 2) {
-      throw new Error("Debe seleccionar evaluadores validos.");
+    const restantes = objetivoTotal - asignadas.length;
+    const solicitadas = Math.min(payload.cantidad ?? restantes, Math.max(restantes, 0));
+
+    if (restantes <= 0 || solicitadas <= 0) {
+      return { message: "Este expediente ya tiene 2 evaluadores asignados." };
     }
 
-    if (evaluadores.some((evaluador) => evaluador.conflictoInteres)) {
-      throw new Error("Un evaluador seleccionado tiene conflicto de interes.");
+    for (let index = 0; index < solicitadas; index += 1) {
+      await evaluacionService.create(String(expedienteId));
     }
 
-    return { message: "Evaluadores asignados correctamente." };
+    return {
+      message:
+        solicitadas === 1
+          ? "Se asigno 1 evaluador automaticamente."
+          : `Se asignaron ${solicitadas} evaluadores automaticamente.`,
+    };
   },
 };

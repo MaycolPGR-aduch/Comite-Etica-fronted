@@ -1,29 +1,40 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
-import { useContextoEvaluacion, useGuardarEvaluacion } from "@/hooks";
+import {
+  useContextoEvaluacion,
+  useDeclararConflictoEvaluacion,
+  useGuardarEvaluacion,
+} from "@/hooks";
 import type { Recommendation, RiskLevel } from "@/types";
 import { EmptyState } from "@/components/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-
-const DEMO_EVALUADOR_ID = "u4";
-
 const sections = ["Metodologia", "Riesgo", "Consentimiento", "Proteccion de datos"];
 
 export default function EvaluacionEticaPage() {
   const params = useParams<{ id: string }>();
-  const expedienteId = String(params.id);
-  const { data, isLoading } = useContextoEvaluacion(expedienteId);
+  const evaluacionId = String(params.id);
+  const { data, isLoading, error } = useContextoEvaluacion(evaluacionId);
   const mutation = useGuardarEvaluacion();
+  const conflictoMutation = useDeclararConflictoEvaluacion();
 
-  const [riesgo, setRiesgo] = useState<RiskLevel>("Medio");
-  const [recomendacion, setRecomendacion] = useState<Recommendation>("Aprobar con observaciones");
+  const [draftRiesgo, setDraftRiesgo] = useState<RiskLevel | null>(null);
+  const [draftRecomendacion, setDraftRecomendacion] = useState<Recommendation | null>(null);
   const [observaciones, setObservaciones] = useState<Record<string, string>>({});
+
+  const defaultObservaciones = useMemo(() => {
+    if (!data) return {};
+
+    return data.evaluacionActual.secciones.reduce<Record<string, string>>((acc, item) => {
+      acc[item.seccion] = item.observacion;
+      return acc;
+    }, {});
+  }, [data]);
 
   if (isLoading) {
     return <p className="text-sm text-slate-500">Cargando contexto de evaluacion...</p>;
@@ -38,18 +49,24 @@ export default function EvaluacionEticaPage() {
     );
   }
 
+  const riesgo = draftRiesgo ?? data.evaluacionActual.riesgo;
+  const recomendacion = draftRecomendacion ?? data.evaluacionActual.recomendacion;
+
   const submit = async (enviar: boolean) => {
     await mutation.mutateAsync({
-      expedienteId,
-      evaluadorId: DEMO_EVALUADOR_ID,
+      evaluacionId,
       riesgo,
       recomendacion,
       secciones: sections.map((section) => ({
         seccion: section,
-        observacion: observaciones[section] ?? "",
+        observacion: observaciones[section] ?? defaultObservaciones[section] ?? "",
       })),
       enviar,
     });
+  };
+
+  const declararConflicto = async () => {
+    await conflictoMutation.mutateAsync(evaluacionId);
   };
 
   return (
@@ -62,6 +79,9 @@ export default function EvaluacionEticaPage() {
           <CardContent className="space-y-2 text-sm">
             <p>
               <strong>Codigo:</strong> {data.expediente.codigo}
+            </p>
+            <p>
+              <strong>Evaluacion:</strong> #{data.evaluacion.id}
             </p>
             <p>
               <strong>Titulo:</strong> {data.expediente.titulo}
@@ -100,7 +120,7 @@ export default function EvaluacionEticaPage() {
               <p className="text-sm font-medium text-[#08204A]">{section}</p>
               <Textarea
                 rows={3}
-                value={observaciones[section] ?? ""}
+                value={observaciones[section] ?? defaultObservaciones[section] ?? ""}
                 onChange={(event) =>
                   setObservaciones((current) => ({
                     ...current,
@@ -122,7 +142,7 @@ export default function EvaluacionEticaPage() {
                   className={`rounded-md border px-3 py-2 text-sm ${
                     riesgo === option ? "border-blue-400 bg-blue-50" : "border-slate-200"
                   }`}
-                  onClick={() => setRiesgo(option)}
+                  onClick={() => setDraftRiesgo(option)}
                 >
                   {option}
                 </button>
@@ -147,7 +167,7 @@ export default function EvaluacionEticaPage() {
                   className={`rounded-md border px-3 py-2 text-left text-sm ${
                     recomendacion === option ? "border-blue-400 bg-blue-50" : "border-slate-200"
                   }`}
-                  onClick={() => setRecomendacion(option)}
+                  onClick={() => setDraftRecomendacion(option)}
                 >
                   {option}
                 </button>
@@ -156,6 +176,13 @@ export default function EvaluacionEticaPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
+            <Button
+              onClick={declararConflicto}
+              disabled={conflictoMutation.isPending || mutation.isPending}
+              variant="destructive"
+            >
+              Declarar conflicto
+            </Button>
             <Button onClick={() => submit(false)} disabled={mutation.isPending} variant="outline">
               Guardar avance
             </Button>
@@ -163,6 +190,22 @@ export default function EvaluacionEticaPage() {
               Enviar evaluacion
             </Button>
           </div>
+
+          {error ? (
+            <Alert className="border-red-200 bg-red-50">
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>
+                {error instanceof Error ? error.message : "No se pudo cargar la evaluacion."}
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          {conflictoMutation.isSuccess ? (
+            <Alert className="border-amber-200 bg-amber-50">
+              <AlertTitle>Conflicto registrado</AlertTitle>
+              <AlertDescription>{conflictoMutation.data.message}</AlertDescription>
+            </Alert>
+          ) : null}
 
           {mutation.isSuccess ? (
             <Alert className="border-green-200 bg-green-50">

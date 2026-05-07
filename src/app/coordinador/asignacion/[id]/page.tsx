@@ -1,11 +1,11 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState } from "react";
 
 import {
   useAsignarEvaluadores,
   useContextoAsignacion,
+  useEvaluaciones,
   useEvaluadoresDisponibles,
 } from "@/hooks";
 import { EmptyState } from "@/components/shared";
@@ -19,11 +19,10 @@ export default function AsignacionEvaluadoresPage() {
 
   const { data: expediente, isLoading: loadingExpediente } = useContextoAsignacion(expedienteId);
   const { data: evaluadores = [], isLoading: loadingEvaluadores } = useEvaluadoresDisponibles();
+  const { data: evaluaciones = [], isLoading: loadingEvaluaciones } = useEvaluaciones();
   const asignacionMutation = useAsignarEvaluadores();
 
-  const [selected, setSelected] = useState<string[]>([]);
-
-  if (loadingExpediente || loadingEvaluadores) {
+  if (loadingExpediente || loadingEvaluadores || loadingEvaluaciones) {
     return <p className="text-sm text-slate-500">Cargando datos de asignacion...</p>;
   }
 
@@ -36,28 +35,24 @@ export default function AsignacionEvaluadoresPage() {
     );
   }
 
-  const toggleSelection = (id: string) => {
-    setSelected((current) => {
-      if (current.includes(id)) {
-        return current.filter((item) => item !== id);
-      }
+  const asignacionesActuales = evaluaciones.filter(
+    (item) => item.expedienteId === expediente.id,
+  );
 
-      if (current.length >= 2) {
-        return current;
-      }
+  const evaluadoresPorId = evaluadores.reduce<Record<string, string>>((acc, evaluador) => {
+    acc[evaluador.id] = evaluador.nombre;
+    return acc;
+  }, {});
 
-      return [...current, id];
-    });
-  };
-
-  const canSubmit = selected.length === 2;
+  const faltantes = Math.max(0, 2 - asignacionesActuales.length);
+  const canSubmit = faltantes > 0;
 
   const submit = async () => {
     if (!canSubmit) return;
 
     await asignacionMutation.mutateAsync({
       expedienteId,
-      evaluadorIds: [selected[0], selected[1]],
+      cantidad: faltantes,
     });
   };
 
@@ -67,7 +62,7 @@ export default function AsignacionEvaluadoresPage() {
         <CardHeader>
           <CardTitle>Asignacion de evaluadores</CardTitle>
           <p className="text-sm text-slate-500">
-            Seleccione manualmente exactamente dos evaluadores sin conflicto de interes.
+            Con el backend actual, la asignacion es automatica al crear evaluaciones.
           </p>
         </CardHeader>
         <CardContent>
@@ -75,40 +70,53 @@ export default function AsignacionEvaluadoresPage() {
             Expediente: <strong>{expediente.codigo}</strong> - {expediente.titulo}
           </p>
 
-          <div className="space-y-3">
-            {evaluadores.map((evaluador) => {
-              const active = selected.includes(evaluador.id);
-              return (
-                <button
-                  key={evaluador.id}
-                  type="button"
-                  className={`w-full rounded-md border p-4 text-left transition ${
-                    active ? "border-blue-400 bg-blue-50" : "border-slate-200"
-                  }`}
-                  onClick={() => toggleSelection(evaluador.id)}
-                >
-                  <p className="font-medium text-[#08204A]">{evaluador.nombre}</p>
-                  <p className="text-sm text-slate-600">Especialidad: {evaluador.especialidad}</p>
-                  <p className="text-sm text-slate-600">Carga actual: {evaluador.cargaTrabajo ?? 0} expedientes</p>
-                  <p
-                    className={`text-sm ${
-                      evaluador.conflictoInteres ? "text-red-600" : "text-green-700"
-                    }`}
-                  >
-                    {evaluador.conflictoInteres ? "Con conflicto de interes" : "Sin conflicto de interes"}
-                  </p>
-                </button>
-              );
-            })}
+          <div className="rounded-md border border-blue-200 bg-blue-50 p-4 text-sm text-slate-700">
+            <p className="font-medium text-[#08204A]">Modo actual: Asignacion automatica</p>
+            <p>
+              El backend decide el evaluador al ejecutar <code>POST /evaluacion/</code>. Aun no
+              existe endpoint para seleccionar evaluadores manualmente.
+            </p>
           </div>
 
-          <div className="mt-4 flex items-center justify-between text-sm text-slate-600">
-            <p>Seleccionados: {selected.length} / 2</p>
-            {!canSubmit ? <p className="text-amber-700">Debe seleccionar exactamente 2.</p> : null}
+          <div className="mt-4 space-y-3 rounded-md border border-slate-200 p-4">
+            <p className="text-sm text-slate-700">
+              Evaluaciones asignadas: <strong>{asignacionesActuales.length}</strong> / 2
+            </p>
+
+            {asignacionesActuales.length > 0 ? (
+              <div className="space-y-2">
+                {asignacionesActuales.map((asignacion) => (
+                  <div key={asignacion.id} className="rounded-md border border-slate-200 p-3 text-sm">
+                    <p>
+                      <strong>Evaluacion #{asignacion.id}</strong>
+                    </p>
+                    <p>
+                      Evaluador:{" "}
+                      {evaluadoresPorId[asignacion.evaluadorId] ?? `Usuario #${asignacion.evaluadorId}`}
+                    </p>
+                    <p>Estado: {asignacion.estado}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">
+                Aun no hay evaluadores asignados para este expediente.
+              </p>
+            )}
+
+            {!canSubmit ? (
+              <p className="text-sm text-emerald-700">
+                El expediente ya tiene el maximo de 2 evaluadores.
+              </p>
+            ) : (
+              <p className="text-sm text-amber-700">
+                Se asignaran automaticamente {faltantes} evaluador(es) para completar 2.
+              </p>
+            )}
           </div>
 
           <Button className="mt-4" disabled={!canSubmit || asignacionMutation.isPending} onClick={submit}>
-            Confirmar asignacion
+            {asignacionMutation.isPending ? "Asignando..." : "Asignar automaticamente"}
           </Button>
 
           {asignacionMutation.isError ? (

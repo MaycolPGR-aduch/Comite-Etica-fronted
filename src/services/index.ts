@@ -6,3 +6,4 @@ export * from "./dashboard.service";
 export * from "./evaluacion.service";
 export * from "./expedientes.service";
 export * from "./revision-administrativa.service";
+export * from "./users.service";

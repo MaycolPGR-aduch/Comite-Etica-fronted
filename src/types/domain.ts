@@ -39,6 +39,7 @@ export interface Usuario {
   nombre: string;
   correo: string;
   role: Role;
+  activo?: boolean;
   especialidad?: string;
   cargaTrabajo?: number;
   conflictoInteres?: boolean;
@@ -127,11 +128,23 @@ export interface Metrica {
 export interface LoginPayload {
   correo: string;
   role: Role;
+  password: string;
 }
 
 export interface LoginResult {
   usuario: Usuario;
   redirectTo: string;
+}
+
+export interface RegisterPayload {
+  nombres: string;
+  apellidos: string;
+  correo: string;
+  rol: Role;
+  password: string;
+  especialidad?: string;
+  carga_trabajo?: number;
+  conflicto_interes?: boolean;
 }
 
 export interface ConfiguracionCatalogos {

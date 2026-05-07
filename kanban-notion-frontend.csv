@@ -1,0 +1,34 @@
+Task,Status,Priority,Area,Owner,Fecha,Descripcion,Referencia
+Definir arquitectura base App Router,Done,Alta,Arquitectura,Frontend,2026-05-05,"Estructura por capas app/components/services/mocks/types para escalar a FastAPI",src/
+Configurar providers globales (React Query),Done,Alta,Arquitectura,Frontend,2026-05-05,"Se agregó provider global para manejo de datos asíncronos",src/components/layout/app-providers.tsx
+Implementar tema institucional azul,Done,Alta,UI/UX,Frontend,2026-05-05,"Variables de color, contraste y estilo base institucional",src/app/globals.css
+Diseñar shell principal con sidebar y header por rol,Done,Alta,UI/UX,Frontend,2026-05-05,"Layout reusable para vistas internas",src/components/layout/
+Implementar Login mock por rol,Done,Alta,Auth UI,Frontend,2026-05-05,"Pantalla de acceso sin auth real, con redirección por rol",src/app/login/page.tsx
+Mejorar diseño Login (fondo, card, footer),Done,Media,Auth UI,Frontend,2026-05-05,"Se aplicó imagen institucional con overlay y footer",src/app/login/page.tsx
+Implementar flujo Crear Usuario (UI),Done,Alta,Auth UI,Frontend,2026-05-05,"Formulario y pantalla de éxito (solo interfaz)",src/app/crear-usuario/
+Implementar flujo Recuperar Contraseña (UI),Done,Alta,Auth UI,Frontend,2026-05-05,"Correo -> verificación -> nueva clave -> confirmación",src/app/recuperar-contrasena/
+Crear portal público Acerca del Comité + FAQ,Done,Media,Contenido Público,Frontend,2026-05-05,"Página informativa accesible sin autenticación",src/app/acerca-comite-etica/page.tsx
+Implementar Dashboard Investigador,Done,Alta,Investigador,Frontend,2026-05-05,"Métricas, tabla de expedientes y actividad",src/app/investigador/dashboard/page.tsx
+Implementar Nuevo Expediente (wizard),Done,Alta,Investigador,Frontend,2026-05-05,"Flujo por pasos con validaciones visuales",src/app/investigador/expedientes/nuevo/page.tsx
+Implementar Mis Expedientes + filtros,Done,Alta,Investigador,Frontend,2026-05-05,"Tabla con filtro por estado y acciones",src/app/investigador/expedientes/page.tsx
+Implementar Detalle de Expediente,Done,Alta,Investigador,Frontend,2026-05-05,"Datos generales, estado, timeline, documentos y observaciones",src/app/investigador/expedientes/[id]/page.tsx
+Implementar Subsanación de Observaciones,Done,Alta,Investigador,Frontend,2026-05-05,"Respuesta por observación y reenvío mock",src/app/investigador/expedientes/[id]/subsanacion/page.tsx
+Implementar Bandeja de Secretaría,Done,Alta,Secretaría,Frontend,2026-05-05,"Métricas y tabla de expedientes recibidos",src/app/secretaria/bandeja/page.tsx
+Implementar Revisión Administrativa,Done,Alta,Secretaría,Frontend,2026-05-05,"Checklist y acciones admitir/devolver",src/app/secretaria/revision/[id]/page.tsx
+Implementar Dashboard Coordinador,Done,Alta,Coordinación,Frontend,2026-05-05,"Indicadores de estado y seguimiento",src/app/coordinador/dashboard/page.tsx
+Implementar Asignación Manual de Evaluadores,Done,Alta,Coordinación,Frontend,2026-05-05,"Selección exacta de 2 evaluadores con validación",src/app/coordinador/asignacion/[id]/page.tsx
+Implementar Consolidación y Dictamen,Done,Alta,Coordinación,Frontend,2026-05-05,"Comparación de evaluaciones y generación mock de dictamen",src/app/coordinador/consolidacion/[id]/page.tsx
+Implementar Bandeja de Evaluador,Done,Alta,Evaluador,Frontend,2026-05-05,"Listado de asignaciones con prioridad y fechas",src/app/evaluador/bandeja/page.tsx
+Implementar Evaluación Ética (2 columnas),Done,Alta,Evaluador,Frontend,2026-05-05,"Formulario por secciones + panel IA mock no vinculante",src/app/evaluador/evaluacion/[id]/page.tsx
+Implementar Configuración Básica,Done,Media,Admin,Frontend,2026-05-05,"Tipos de trámite, documentos, estados, plantillas",src/app/admin/configuracion/page.tsx
+Crear componentes compartidos UI,Done,Alta,Componentes,Frontend,2026-05-05,"MetricCard, StatusBadge, Timeline, DataTable, EmptyState, DocumentChecklist",src/components/shared/
+Implementar capa de servicios mock tipados,Done,Alta,Data Layer,Frontend,2026-05-05,"Servicios por dominio con latencia simulada",src/services/
+Implementar hooks React Query por módulo,Done,Alta,Data Layer,Frontend,2026-05-05,"Hooks para desacoplar vistas de la fuente de datos",src/hooks/use-comite-query.ts
+Aplicar hover azul claro global en botones,Done,Media,UI/UX,Frontend,2026-05-05,"Actualización de variantes del Button base",src/components/ui/button.tsx
+Documentar proyecto en README,Done,Alta,Documentación,Frontend,2026-05-05,"README completo con avance y despliegue",README.md
+Preparar contexto para próximas sesiones,Done,Media,Documentación,Frontend,2026-05-05,"Archivo context.md con estado general",context.md
+Integración real con backend FastAPI,Todo,Alta,Backend Integration,Frontend+Backend,2026-05-05,"Reemplazar mocks en services por endpoints REST",src/services/
+Implementar autenticación real y control de sesiones,Todo,Alta,Seguridad,Frontend+Backend,2026-05-05,"Login real, refresh token, protección de rutas",src/app/login/
+Implementar autorización por rol real,Todo,Alta,Seguridad,Frontend+Backend,2026-05-05,"Restringir vistas y acciones por permisos",src/app/
+Implementar carga de archivos real,Todo,Media,Investigador,Frontend+Backend,2026-05-05,"Subida de documentos a storage real",src/app/investigador/expedientes/nuevo/
+Conectar dictámenes a generación/descarga real,Todo,Media,Coordinación,Frontend+Backend,2026-05-05,"Persistencia y descarga de dictamen definitivo",src/app/coordinador/consolidacion/

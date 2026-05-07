@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { AuthShell } from "@/components/layout";
+import { useRegister } from "@/hooks";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -47,7 +48,9 @@ const roleOptions: Array<{ value: Role; label: string }> = [
 
 export default function CrearUsuarioPage() {
   const router = useRouter();
+  const registerMutation = useRegister();
   const [selectedRole, setSelectedRole] = useState<Role>("investigador");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -61,17 +64,33 @@ export default function CrearUsuarioPage() {
     },
   });
 
-  const onSubmit = form.handleSubmit(() => {
-    router.push("/crear-usuario/exito");
+  const onSubmit = form.handleSubmit(async (values) => {
+    setErrorMessage(null);
+
+    try {
+      await registerMutation.mutateAsync({
+        nombres: values.nombres,
+        apellidos: values.apellidos,
+        correo: values.correo,
+        rol: values.rol,
+        password: values.password,
+      });
+
+      router.push("/crear-usuario/exito");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "No se pudo registrar el usuario. Intente nuevamente.";
+      setErrorMessage(message);
+    }
   });
 
   return (
     <AuthShell>
       <Card className="w-full max-w-lg border-blue-100/70 bg-white/93 shadow-xl backdrop-blur-sm">
-        <CardHeader className="space-y-2 text-center">
+          <CardHeader className="space-y-2 text-center">
           <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#0B57B7]">Registro</p>
           <CardTitle className="text-3xl font-bold text-[#08204A]">Crear usuario</CardTitle>
-          <p className="text-sm font-medium text-slate-600">Interfaz mock de alta de usuarios del sistema.</p>
+          <p className="text-sm font-medium text-slate-600">Registro conectado al backend del sistema.</p>
         </CardHeader>
 
         <CardContent>
@@ -152,8 +171,10 @@ export default function CrearUsuarioPage() {
               </div>
             </div>
 
-            <Button className="w-full font-semibold" type="submit">
-              Crear cuenta
+            {errorMessage ? <p className="text-sm font-medium text-red-600">{errorMessage}</p> : null}
+
+            <Button className="w-full font-semibold" type="submit" disabled={registerMutation.isPending}>
+              {registerMutation.isPending ? "Creando..." : "Crear cuenta"}
             </Button>
 
             <div className="text-center text-sm font-medium">

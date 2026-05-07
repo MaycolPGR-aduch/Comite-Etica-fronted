@@ -89,9 +89,11 @@ export default function DetalleExpedientePage() {
 
             {dictamen ? (
               <a className="block text-sm text-[#0B57B7] hover:underline" href={dictamen.url}>
-                Descargar dictamen mock
+                Descargar dictamen
               </a>
-            ) : null}
+            ) : (
+              <p className="text-sm text-slate-500">Dictamen aún no disponible.</p>
+            )}
           </CardContent>
         </Card>
       </div>

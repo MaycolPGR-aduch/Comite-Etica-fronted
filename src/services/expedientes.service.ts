@@ -1,13 +1,19 @@
-import { dictamenesMock, expedientesMock, historialMock, observacionesMock } from "@/mocks";
+import { api } from "@/lib/api";
 import type {
+  BitacoraEventoDto,
   Dictamen,
+  DocumentoResponseDto,
   Expediente,
+  ExpedienteCreateRequestDto,
+  ExpedienteEnviarResponseDto,
+  ExpedienteResponseDto,
   ExpedienteStatus,
+  HistorialEstadoDto,
   HistorialEvento,
   Observacion,
 } from "@/types";
 
-import { clone, wait } from "./service-utils";
+import { getAuthUser } from "./auth-session";
 
 export interface ExpedienteDetalleResponse {
   expediente: Expediente;
@@ -23,67 +29,175 @@ export interface NuevoExpedientePayload {
   resumen: string;
 }
 
+export interface RegistrarDocumentoPayload {
+  nombreArchivo: string;
+  tipoDocumento: string;
+  esObligatorio?: boolean;
+}
+
+const FALLBACK_DOCUMENTS = [
+  "Protocolo de investigacion",
+  "Consentimiento informado",
+  "Carta de presentacion",
+  "Instrumentos de recoleccion",
+];
+
+const statusMap: Record<string, ExpedienteStatus> = {
+  borrador: "Borrador",
+  enviado: "Enviado",
+  en_revision: "En evaluación",
+  subsanacion: "Subsanado",
+  aprobado: "Aprobado",
+  rechazado: "Desaprobado",
+  archivado: "Cerrado",
+};
+
+const resolveStatus = (value: string): ExpedienteStatus => {
+  const key = value.trim().toLowerCase();
+  return statusMap[key] ?? "Enviado";
+};
+
+const toDomainExpediente = (dto: ExpedienteResponseDto): Expediente => {
+  const sessionUser = getAuthUser();
+
+  return {
+    id: String(dto.id),
+    codigo: dto.codigo_unico ?? `EXP-${dto.id}`,
+    titulo: dto.titulo_protocolo,
+    investigadorPrincipal: sessionUser?.nombre ?? `Investigador #${dto.investigador_id}`,
+    tipoTramite: "No especificado",
+    facultad: "No especificada",
+    fechaRegistro: dto.created_at,
+    fechaLimite: undefined,
+    prioridad: "Media",
+    estado: resolveStatus(dto.estado),
+    documentos: FALLBACK_DOCUMENTS.map((nombre, index) => ({
+      id: `doc-fallback-${dto.id}-${index + 1}`,
+      nombre,
+      tipo: "Requerido",
+      requerido: true,
+      cargado: false,
+    })),
+    observacionesPendientes: 0,
+    evaluadoresAsignados: [],
+  };
+};
+
+const toBitacoraEvento = (dto: BitacoraEventoDto): HistorialEvento => ({
+  id: `bitacora-${dto.id}`,
+  expedienteId: "",
+  titulo: dto.accion,
+  descripcion: dto.detalle,
+  actor: "Sistema",
+  fecha: dto.created_at,
+});
+
+const toHistorialEvento = (dto: HistorialEstadoDto): HistorialEvento => ({
+  id: `historial-${dto.id}`,
+  expedienteId: String(dto.expediente_id),
+  titulo: `Estado: ${dto.estado_nuevo}`,
+  descripcion: dto.observaciones ?? "Cambio de estado registrado.",
+  actor: "Sistema",
+  fecha: dto.created_at,
+});
+
+const sortByDateDesc = (events: HistorialEvento[]) =>
+  [...events].sort(
+    (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime(),
+  );
+
 export const expedientesService = {
   async list(status?: ExpedienteStatus): Promise<Expediente[]> {
-    await wait();
-    const items = status
-      ? expedientesMock.filter((expediente) => expediente.estado === status)
-      : expedientesMock;
-    return clone(items);
+    const response = await api.get<ExpedienteResponseDto[]>("/expedientes/", {
+      params: { skip: 0, limit: 100 },
+    });
+
+    const mapped = response.data.map(toDomainExpediente);
+    return status ? mapped.filter((item) => item.estado === status) : mapped;
   },
 
   async getById(id: string): Promise<ExpedienteDetalleResponse> {
-    await wait();
-    const expediente = expedientesMock.find((item) => item.id === id);
-
-    if (!expediente) {
-      throw new Error("Expediente no encontrado.");
+    const expedienteId = Number(id);
+    if (!Number.isFinite(expedienteId)) {
+      throw new Error("El identificador del expediente no es válido.");
     }
 
-    const timeline = historialMock.filter((event) => event.expedienteId === id);
-    const observaciones = observacionesMock.filter((item) => item.expedienteId === id);
-    const dictamen = dictamenesMock.find((item) => item.expedienteId === id);
+    const [expedienteResponse, bitacoraResponse, historialResponse] = await Promise.all([
+      api.get<ExpedienteResponseDto>(`/expedientes/${expedienteId}`),
+      api.get<BitacoraEventoDto[]>(`/expedientes/${expedienteId}/bitacora`),
+      api.get<HistorialEstadoDto[]>(`/expedientes/${expedienteId}/historial`),
+    ]);
 
-    return clone({ expediente, timeline, observaciones, dictamen });
+    const expediente = toDomainExpediente(expedienteResponse.data);
+
+    const timeline = sortByDateDesc([
+      ...bitacoraResponse.data.map((item) => ({
+        ...toBitacoraEvento(item),
+        expedienteId: expediente.id,
+      })),
+      ...historialResponse.data.map(toHistorialEvento),
+    ]);
+
+    return {
+      expediente,
+      timeline,
+      observaciones: [],
+      dictamen: undefined,
+    };
   },
 
   async createDraft(payload: NuevoExpedientePayload): Promise<Expediente> {
-    await wait();
-    const codigo = `CE-2026-${String(expedientesMock.length + 1).padStart(3, "0")}`;
-
-    const draft: Expediente = {
-      id: `exp-${String(expedientesMock.length + 1).padStart(3, "0")}`,
-      codigo,
-      titulo: payload.titulo,
-      investigadorPrincipal: "Ana Lopez",
-      tipoTramite: payload.tipoTramite,
-      facultad: payload.facultad,
-      fechaRegistro: new Date().toISOString(),
-      fechaLimite: new Date(Date.now() + 1000 * 60 * 60 * 24 * 21).toISOString(),
-      prioridad: "Media",
-      estado: "Borrador",
-      documentos: [],
-      observacionesPendientes: 0,
-      evaluadoresAsignados: [],
+    const requestBody: ExpedienteCreateRequestDto = {
+      titulo_protocolo: payload.titulo,
     };
 
-    return clone(draft);
+    const created = await api.post<ExpedienteResponseDto>("/expedientes/", requestBody);
+    return toDomainExpediente(created.data);
+  },
+
+  async registrarDocumento(
+    expedienteId: string,
+    payload: RegistrarDocumentoPayload,
+  ): Promise<DocumentoResponseDto> {
+    const id = Number(expedienteId);
+    if (!Number.isFinite(id)) {
+      throw new Error("El identificador del expediente no es válido.");
+    }
+
+    const response = await api.post<DocumentoResponseDto>(
+      `/expedientes/${id}/documentos`,
+      null,
+      {
+        params: {
+          nombre_archivo: payload.nombreArchivo,
+          tipo_documento: payload.tipoDocumento,
+          es_obligatorio: payload.esObligatorio ?? true,
+        },
+      },
+    );
+
+    return response.data;
+  },
+
+  async enviarExpediente(expedienteId: string): Promise<ExpedienteEnviarResponseDto> {
+    const id = Number(expedienteId);
+    if (!Number.isFinite(id)) {
+      throw new Error("El identificador del expediente no es válido.");
+    }
+
+    const response = await api.post<ExpedienteEnviarResponseDto>(`/expedientes/${id}/enviar`);
+    return response.data;
   },
 
   async reenviarSubsanacion(
     expedienteId: string,
     respuestas: Array<{ observacionId: string; respuesta: string }>,
   ): Promise<{ message: string }> {
-    await wait();
-
-    if (!expedientesMock.some((item) => item.id === expedienteId)) {
-      throw new Error("No se puede reenviar un expediente inexistente.");
-    }
-
     if (respuestas.length === 0) {
       throw new Error("Debe responder al menos una observacion.");
     }
 
-    return { message: "Expediente reenviado para nueva revision." };
+    const response = await this.enviarExpediente(expedienteId);
+    return { message: response.message };
   },
 };

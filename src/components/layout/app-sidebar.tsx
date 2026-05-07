@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { roleLabel, roleNavigation, resolveRoleFromPath } from "@/lib/navigation";
+import { clearAuthSession } from "@/services/auth-session";
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -23,7 +24,7 @@ export function AppSidebar() {
 
           return (
             <Link
-              key={item.href}
+              key={`${item.href}-${item.label}`}
               href={item.href}
               className={`block rounded-md px-3 py-2 text-sm transition ${
                 isActive
@@ -38,7 +39,11 @@ export function AppSidebar() {
       </nav>
 
       <div className="mt-8 border-t border-blue-100 pt-4 text-sm text-slate-500">
-        <Link className="text-[#0B57B7] hover:underline" href="/login">
+        <Link
+          className="text-[#0B57B7] hover:underline"
+          href="/login"
+          onClick={() => clearAuthSession()}
+        >
           Cambiar rol
         </Link>
       </div>

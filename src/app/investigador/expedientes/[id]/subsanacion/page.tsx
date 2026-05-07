@@ -87,7 +87,7 @@ export default function SubsanacionPage() {
             <Alert className="border-green-200 bg-green-50">
               <AlertTitle>Subsanacion enviada</AlertTitle>
               <AlertDescription>
-                Se registro el reenvio mock para nueva revision del expediente.
+                Se registró el reenvío para nueva revisión del expediente.
               </AlertDescription>
             </Alert>
           ) : null}

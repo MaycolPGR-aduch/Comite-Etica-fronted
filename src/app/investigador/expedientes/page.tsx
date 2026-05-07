@@ -49,7 +49,7 @@ export default function MisExpedientesPage() {
                   >
                     Subsanar
                   </Link>
-                  <span className="text-slate-500">Descargar dictamen (mock)</span>
+                  <span className="text-slate-500">Dictamen disponible cuando sea emitido</span>
                 </div>
               ),
             },

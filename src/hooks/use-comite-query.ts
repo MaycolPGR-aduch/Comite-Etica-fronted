@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   asignacionService,
@@ -11,12 +11,15 @@ import {
   evaluacionService,
   expedientesService,
   revisionAdministrativaService,
+  usersService,
 } from "@/services";
 import type {
   Evaluacion,
   ExpedienteStatus,
   LoginPayload,
+  RegisterPayload,
   Recommendation,
+  Role,
   RiskLevel,
 } from "@/types";
 
@@ -26,16 +29,32 @@ export const queryKeys = {
   dashboardInvestigador: ["dashboard", "investigador"] as const,
   bandejaSecretaria: ["dashboard", "secretaria"] as const,
   dashboardCoordinador: ["dashboard", "coordinador"] as const,
-  bandejaEvaluador: (id: string) => ["dashboard", "evaluador", id] as const,
+  bandejaEvaluador: ["dashboard", "evaluador"] as const,
+  evaluaciones: ["evaluaciones"] as const,
+  evaluacion: (id: string) => ["evaluaciones", id] as const,
   asignacionContexto: (id: string) => ["asignacion", id] as const,
   evaluadores: ["evaluadores"] as const,
   consolidacion: (id: string) => ["consolidacion", id] as const,
   configuracion: ["configuracion"] as const,
+  profile: ["auth", "profile"] as const,
+  users: ["users"] as const,
+  user: (id: string) => ["users", id] as const,
 };
 
 export const useLogin = () =>
   useMutation({
     mutationFn: (payload: LoginPayload) => authService.login(payload),
+  });
+
+export const useRegister = () =>
+  useMutation({
+    mutationFn: (payload: RegisterPayload) => authService.register(payload),
+  });
+
+export const useMyProfile = () =>
+  useQuery({
+    queryKey: queryKeys.profile,
+    queryFn: () => authService.getMyProfile(),
   });
 
 export const useExpedientes = (status?: ExpedienteStatus) =>
@@ -53,6 +72,26 @@ export const useExpedienteDetalle = (id: string) =>
 
 export const useCrearBorrador = () =>
   useMutation({ mutationFn: expedientesService.createDraft });
+
+export const useRegistrarDocumentoExpediente = () =>
+  useMutation({
+    mutationFn: (payload: {
+      expedienteId: string;
+      nombreArchivo: string;
+      tipoDocumento: string;
+      esObligatorio?: boolean;
+    }) =>
+      expedientesService.registrarDocumento(payload.expedienteId, {
+        nombreArchivo: payload.nombreArchivo,
+        tipoDocumento: payload.tipoDocumento,
+        esObligatorio: payload.esObligatorio,
+      }),
+  });
+
+export const useEnviarExpediente = () =>
+  useMutation({
+    mutationFn: (expedienteId: string) => expedientesService.enviarExpediente(expedienteId),
+  });
 
 export const useReenviarSubsanacion = () =>
   useMutation({ mutationFn: ({ expedienteId, respuestas }: { expedienteId: string; respuestas: Array<{ observacionId: string; respuesta: string }> }) => expedientesService.reenviarSubsanacion(expedienteId, respuestas) });
@@ -98,33 +137,81 @@ export const useContextoAsignacion = (id: string) =>
   });
 
 export const useAsignarEvaluadores = () =>
-  useMutation({ mutationFn: asignacionService.asignarEvaluadores });
+  {
+    const queryClient = useQueryClient();
 
-export const useBandejaEvaluador = (evaluadorId: string) =>
+    return useMutation({
+      mutationFn: asignacionService.asignarEvaluadores,
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.evaluaciones });
+        queryClient.invalidateQueries({ queryKey: queryKeys.bandejaEvaluador });
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboardCoordinador });
+      },
+    });
+  };
+
+export const useBandejaEvaluador = () =>
   useQuery({
-    queryKey: queryKeys.bandejaEvaluador(evaluadorId),
-    queryFn: () => evaluacionService.getBandejaEvaluador(evaluadorId),
-    enabled: Boolean(evaluadorId),
+    queryKey: queryKeys.bandejaEvaluador,
+    queryFn: () => evaluacionService.listMisEvaluaciones(),
   });
+
+export const useEvaluaciones = () =>
+  useQuery({
+    queryKey: queryKeys.evaluaciones,
+    queryFn: () => evaluacionService.list(),
+  });
+
+export const useCrearEvaluacion = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (expedienteId: string) => evaluacionService.create(expedienteId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.evaluaciones });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bandejaEvaluador });
+    },
+  });
+};
 
 export const useContextoEvaluacion = (id: string) =>
   useQuery({
-    queryKey: ["evaluacion", id],
+    queryKey: queryKeys.evaluacion(id),
     queryFn: () => evaluacionService.getContextoEvaluacion(id),
     enabled: Boolean(id),
   });
 
-export const useGuardarEvaluacion = () =>
-  useMutation({
+export const useDeclararConflictoEvaluacion = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (evaluacionId: string) => evaluacionService.declararConflicto(evaluacionId),
+    onSuccess: (_, evaluacionId) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.evaluacion(evaluacionId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bandejaEvaluador });
+      queryClient.invalidateQueries({ queryKey: queryKeys.evaluaciones });
+    },
+  });
+};
+
+export const useGuardarEvaluacion = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
     mutationFn: (payload: {
-      expedienteId: string;
-      evaluadorId: string;
+      evaluacionId: string;
       riesgo: RiskLevel;
       recomendacion: Recommendation;
       secciones: Evaluacion["secciones"];
       enviar: boolean;
     }) => evaluacionService.saveEvaluacion(payload),
+    onSuccess: (_, payload) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.evaluacion(payload.evaluacionId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bandejaEvaluador });
+      queryClient.invalidateQueries({ queryKey: queryKeys.evaluaciones });
+    },
   });
+};
 
 export const useConsolidacion = (id: string) =>
   useQuery({
@@ -141,3 +228,45 @@ export const useConfiguracionCatalogos = () =>
     queryKey: queryKeys.configuracion,
     queryFn: () => configuracionService.getCatalogos(),
   });
+
+export const useUsers = () =>
+  useQuery({
+    queryKey: queryKeys.users,
+    queryFn: () => usersService.list(),
+  });
+
+export const useUserById = (id: string) =>
+  useQuery({
+    queryKey: queryKeys.user(id),
+    queryFn: () => usersService.getById(id),
+    enabled: Boolean(id),
+  });
+
+export const useUpdateUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: {
+      id: string;
+      data: { nombre?: string; apellido?: string; rol?: Role; activo?: boolean };
+    }) => usersService.update(payload.id, payload.data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.users });
+      queryClient.invalidateQueries({ queryKey: queryKeys.user(variables.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile });
+    },
+  });
+};
+
+export const useDeactivateUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => usersService.deactivate(id),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.users });
+      queryClient.invalidateQueries({ queryKey: queryKeys.user(id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile });
+    },
+  });
+};

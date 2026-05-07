@@ -5,6 +5,7 @@ import { Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 import { roleLabel, roleNavigation, resolveRoleFromPath } from "@/lib/navigation";
+import { clearAuthSession } from "@/services/auth-session";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -23,8 +24,10 @@ const titleBySegment: Record<string, string> = {
   asignacion: "Asignacion de evaluadores",
   evaluacion: "Evaluacion etica",
   consolidacion: "Consolidacion y dictamen",
+  usuarios: "Usuarios",
   configuracion: "Configuracion",
   subsanacion: "Subsanacion",
+  perfil: "Mi perfil",
 };
 
 const resolveTitle = (pathname: string) => {
@@ -65,7 +68,7 @@ export function AppHeader() {
               <nav className="mt-6 space-y-2">
                 {roleNavigation[role].map((item) => (
                   <Link
-                    key={item.href}
+                    key={`${item.href}-${item.label}`}
                     href={item.href}
                     className="block rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
                   >
@@ -82,7 +85,11 @@ export function AppHeader() {
           </div>
         </div>
 
-        <Link className="text-sm text-[#0B57B7] hover:underline" href="/login">
+        <Link
+          className="text-sm text-[#0B57B7] hover:underline"
+          href="/login"
+          onClick={() => clearAuthSession()}
+        >
           Cerrar demo
         </Link>
       </div>

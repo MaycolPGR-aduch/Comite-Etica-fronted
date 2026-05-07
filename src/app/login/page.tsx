@@ -25,6 +25,7 @@ import {
 const schema = z.object({
   correo: z.string().email("Ingrese un correo valido"),
   role: z.custom<Role>(),
+  password: z.string().min(1, "Ingrese su contraseña"),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -41,18 +42,32 @@ export default function LoginPage() {
   const router = useRouter();
   const loginMutation = useLogin();
   const [selectedRole, setSelectedRole] = useState<Role>("investigador");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       correo: "investigador@demo.edu",
       role: "investigador",
+      password: "",
     },
   });
 
   const onSubmit = form.handleSubmit(async (values) => {
-    const result = await loginMutation.mutateAsync(values);
-    router.push(result.redirectTo);
+    setErrorMessage(null);
+    try {
+      const result = await loginMutation.mutateAsync(values);
+      const next =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("next")
+          : null;
+      const redirectTo = next && next.startsWith("/") ? next : result.redirectTo;
+      router.push(redirectTo);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "No se pudo iniciar sesion. Intente nuevamente.";
+      setErrorMessage(message);
+    }
   });
 
   return (
@@ -64,7 +79,7 @@ export default function LoginPage() {
             </p>
             <CardTitle className="text-3xl font-bold text-[#08204A]">Acceso al sistema</CardTitle>
             <p className="text-sm font-medium text-slate-600">
-              Inicio de sesion mock para pruebas de roles y flujos.
+              Inicio de sesion conectado al backend del Comité de Ética.
             </p>
           </CardHeader>
 
@@ -102,6 +117,29 @@ export default function LoginPage() {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="space-y-2">
+                <Label className="font-semibold" htmlFor="password">
+                  Contraseña
+                </Label>
+                <Input id="password" type="password" {...form.register("password")} />
+                {form.formState.errors.password ? (
+                  <p className="text-xs font-medium text-red-600">{form.formState.errors.password.message}</p>
+                ) : null}
+              </div>
+
+              {errorMessage ? (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-red-600">{errorMessage}</p>
+                  <p className="text-xs text-slate-600">
+                    Si aún no tienes cuenta, puedes{" "}
+                    <Link className="font-semibold text-[#0B57B7] hover:underline" href="/crear-usuario">
+                      registrarte aquí
+                    </Link>
+                    .
+                  </p>
+                </div>
+              ) : null}
 
               <Button className="mt-2 w-full font-semibold" type="submit" disabled={loginMutation.isPending}>
                 {loginMutation.isPending ? "Ingresando..." : "Ingresar"}
