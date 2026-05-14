@@ -1,8 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useMemo, useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
 import {
@@ -19,32 +19,81 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+const TIPO_TRAMITE_OPTIONS = [
+  { value: "protocolo_estudiante", label: "Protocolo para estudiante" },
+  { value: "protocolo_tesista", label: "Protocolo para tesista/profesor" },
+] as const;
+
+const FACULTAD_OPTIONS = [
+  "Facultad de Medicina",
+  "Facultad de Enfermeria",
+  "Facultad de Odontologia",
+  "Facultad de Farmacia y Bioquimica",
+  "Facultad de Psicologia",
+  "Facultad de Ciencias de la Salud",
+  "Facultad de Ingenieria",
+  "Facultad de Derecho",
+  "Facultad de Educacion",
+  "Facultad de Ciencias Empresariales",
+];
+
 const schema = z.object({
   titulo: z.string().min(10, "El titulo debe tener al menos 10 caracteres"),
   tipoTramite: z.string().min(3, "Ingrese tipo de tramite"),
   facultad: z.string().min(2, "Ingrese la facultad"),
+  prioridad: z.enum(["Alta", "Media", "Baja"]),
   resumen: z.string().min(40, "El resumen debe tener al menos 40 caracteres"),
 });
 
 type FormData = z.infer<typeof schema>;
 
-const requiredDocs = [
-  "Protocolo de investigacion",
-  "Consentimiento informado",
-  "Carta de presentacion",
-  "Instrumentos de recoleccion",
-];
+const DOCUMENTOS_POR_TIPO_TRAMITE = {
+  protocolo_estudiante: [
+    {
+      key: "protocolo",
+      label: "Protocolo de investigacion",
+      tipoDocumento: "protocolo",
+    },
+    {
+      key: "consentimiento",
+      label: "Consentimiento informado",
+      tipoDocumento: "consentimiento",
+    },
+    {
+      key: "carta",
+      label: "Carta de presentacion",
+      tipoDocumento: "carta",
+    },
+    {
+      key: "instrumentos",
+      label: "Instrumentos de recoleccion",
+      tipoDocumento: "instrumentos",
+    },
+    {
+      key: "boleta_pago",
+      label: "Boleta de pago de tramite",
+      tipoDocumento: "boleta_pago",
+    },
+  ],
+  protocolo_tesista: [
+    {
+      key: "protocolo",
+      label: "Protocolo o proyecto de investigacion",
+      tipoDocumento: "protocolo",
+    },
+    {
+      key: "boleta_pago",
+      label: "Boleta de pago de tramite",
+      tipoDocumento: "boleta_pago",
+    },
+  ],
+} as const;
 
 export default function NuevoExpedientePage() {
   const [step, setStep] = useState(1);
   const [wizardError, setWizardError] = useState<string | null>(null);
   const [expedienteCreado, setExpedienteCreado] = useState<Expediente | null>(null);
-  const [uploadedDocs, setUploadedDocs] = useState<Record<string, boolean>>({
-    "Protocolo de investigacion": true,
-    "Consentimiento informado": true,
-    "Carta de presentacion": false,
-    "Instrumentos de recoleccion": false,
-  });
+  const [selectedFiles, setSelectedFiles] = useState<Record<string, File | null>>({});
   const [registeredDocs, setRegisteredDocs] = useState<Record<string, boolean>>({});
 
   const createDraftMutation = useCrearBorrador();
@@ -56,14 +105,28 @@ export default function NuevoExpedientePage() {
     mode: "onChange",
     defaultValues: {
       titulo: "",
-      tipoTramite: "Nuevo protocolo",
-      facultad: "",
+      tipoTramite: "protocolo_estudiante",
+      facultad: FACULTAD_OPTIONS[0],
+      prioridad: "Media",
       resumen: "",
     },
   });
 
-  const docsComplete = requiredDocs.every((doc) => uploadedDocs[doc]);
-  const docsRegistered = requiredDocs.every((doc) => registeredDocs[doc]);
+  const tipoTramiteSeleccionado = useWatch({
+    control: form.control,
+    name: "tipoTramite",
+  });
+  const requiredDocs = useMemo(() => {
+    if (tipoTramiteSeleccionado === "protocolo_tesista") {
+      return DOCUMENTOS_POR_TIPO_TRAMITE.protocolo_tesista;
+    }
+
+    return DOCUMENTOS_POR_TIPO_TRAMITE.protocolo_estudiante;
+  }, [tipoTramiteSeleccionado]);
+
+  const docsComplete = requiredDocs.every((doc) => Boolean(selectedFiles[doc.key]));
+  const docsRegistered = requiredDocs.every((doc) => registeredDocs[doc.key]);
+  const tramiteLocked = expedienteCreado !== null;
 
   const nextStep = async () => {
     setWizardError(null);
@@ -100,28 +163,33 @@ export default function NuevoExpedientePage() {
       }
 
       try {
-        const pendingDocs = requiredDocs.filter((doc) => !registeredDocs[doc]);
+        const pendingDocs = requiredDocs.filter((doc) => !registeredDocs[doc.key]);
 
-        for (const docName of pendingDocs) {
+        for (const doc of pendingDocs) {
+          const file = selectedFiles[doc.key];
+          if (!file) {
+            throw new Error(`Debe seleccionar archivo para: ${doc.label}.`);
+          }
+
           await registrarDocumentoMutation.mutateAsync({
             expedienteId: expedienteCreado.id,
-            nombreArchivo: `${docName}.pdf`,
-            tipoDocumento: "PDF",
+            file,
+            tipoDocumento: doc.tipoDocumento,
             esObligatorio: true,
           });
         }
 
-        setRegisteredDocs(
-          requiredDocs.reduce<Record<string, boolean>>((acc, doc) => {
-            acc[doc] = true;
-            return acc;
-          }, {}),
+        setRegisteredDocs((current) =>
+          pendingDocs.reduce<Record<string, boolean>>(
+            (acc, doc) => ({ ...acc, [doc.key]: true }),
+            { ...current },
+          ),
         );
       } catch (error) {
         const message =
           error instanceof Error
             ? error.message
-            : "No se pudieron registrar los metadatos de documentos.";
+            : "No se pudieron cargar los documentos.";
         setWizardError(message);
         return;
       }
@@ -166,7 +234,7 @@ export default function NuevoExpedientePage() {
         <CardHeader>
           <CardTitle>Nuevo expediente</CardTitle>
           <p className="text-sm text-slate-500">
-            Flujo alineado con backend: crear borrador, registrar metadatos de documentos y enviar.
+            Flujo alineado con backend: crear borrador, cargar documentos y enviar.
           </p>
         </CardHeader>
         <CardContent>
@@ -205,12 +273,50 @@ export default function NuevoExpedientePage() {
                   ) : null}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="tipoTramite">Tipo de tramite (UI)</Label>
-                  <Input id="tipoTramite" {...form.register("tipoTramite")} />
+                  <Label htmlFor="tipoTramite">Tipo de tramite</Label>
+                  <select
+                    id="tipoTramite"
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    disabled={tramiteLocked}
+                    {...form.register("tipoTramite")}
+                  >
+                    {TIPO_TRAMITE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  {tramiteLocked ? (
+                    <p className="text-xs text-slate-500">
+                      Tipo de tramite bloqueado para mantener consistencia tras crear el borrador.
+                    </p>
+                  ) : null}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="facultad">Facultad (UI)</Label>
-                  <Input id="facultad" {...form.register("facultad")} />
+                  <Label htmlFor="facultad">Facultad</Label>
+                  <select
+                    id="facultad"
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    {...form.register("facultad")}
+                  >
+                    {FACULTAD_OPTIONS.map((facultad) => (
+                      <option key={facultad} value={facultad}>
+                        {facultad}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="prioridad">Prioridad</Label>
+                  <select
+                    id="prioridad"
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    {...form.register("prioridad")}
+                  >
+                    <option value="Alta">Alta</option>
+                    <option value="Media">Media</option>
+                    <option value="Baja">Baja</option>
+                  </select>
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="resumen">Resumen (UI)</Label>
@@ -219,43 +325,44 @@ export default function NuevoExpedientePage() {
                     <p className="text-xs text-red-600">{form.formState.errors.resumen.message}</p>
                   ) : null}
                 </div>
-                <p className="text-xs text-slate-500 md:col-span-2">
-                  Nota: backend RF-06 actualmente recibe solo <code>titulo_protocolo</code> en creación.
-                </p>
               </div>
             ) : null}
 
             {step === 2 ? (
               <div className="space-y-4">
                 <Alert>
-                  <AlertTitle>Registro de metadatos documentales</AlertTitle>
+                  <AlertTitle>Carga de documentos</AlertTitle>
                   <AlertDescription>
-                    Se registrarán en backend los metadatos de cada documento requerido.
+                    Seleccione un archivo por documento requerido para registrarlo en backend.
                   </AlertDescription>
                 </Alert>
 
                 <div className="grid gap-2">
                   {requiredDocs.map((doc) => (
-                    <label key={doc} className="flex items-center gap-3 rounded-md border p-3">
-                      <input
-                        checked={uploadedDocs[doc] ?? false}
-                        onChange={(event) =>
-                          setUploadedDocs((current) => ({
+                    <div key={doc.key} className="space-y-2 rounded-md border p-3">
+                      <p className="text-sm font-medium">{doc.label}</p>
+                      <Input
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        type="file"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0] ?? null;
+                          setSelectedFiles((current) => ({
                             ...current,
-                            [doc]: event.target.checked,
-                          }))
-                        }
-                        type="checkbox"
+                            [doc.key]: file,
+                          }));
+                        }}
                       />
-                      <span className="text-sm">{doc}</span>
-                    </label>
+                      <p className="text-xs text-slate-500">
+                        {selectedFiles[doc.key]
+                          ? `Archivo: ${selectedFiles[doc.key]?.name}`
+                          : "Sin archivo seleccionado"}
+                      </p>
+                    </div>
                   ))}
                 </div>
 
                 {!docsComplete ? (
-                  <p className="text-sm text-amber-700">
-                    Complete el checklist para registrar los documentos.
-                  </p>
+                  <p className="text-sm text-amber-700">Debe seleccionar todos los archivos requeridos.</p>
                 ) : null}
               </div>
             ) : null}
@@ -277,18 +384,30 @@ export default function NuevoExpedientePage() {
                       <strong>Titulo:</strong> {form.getValues("titulo")}
                     </p>
                     <p>
+                      <strong>Tipo de tramite:</strong>{" "}
+                      {TIPO_TRAMITE_OPTIONS.find(
+                        (item) => item.value === form.getValues("tipoTramite"),
+                      )?.label ?? form.getValues("tipoTramite")}
+                    </p>
+                    <p>
+                      <strong>Facultad:</strong> {form.getValues("facultad")}
+                    </p>
+                    <p>
                       <strong>Estado actual:</strong> {expedienteCreado?.estado}
+                    </p>
+                    <p>
+                      <strong>Prioridad:</strong> {form.getValues("prioridad")}
                     </p>
                   </CardContent>
                 </Card>
 
                 <DocumentChecklist
                   documents={requiredDocs.map((doc, index) => ({
-                    id: `${doc}-${index}`,
-                    nombre: doc,
-                    tipo: "Metadato registrado",
+                    id: `${doc.key}-${index}`,
+                    nombre: doc.label,
+                    tipo: "Archivo",
                     requerido: true,
-                    cargado: registeredDocs[doc] ?? false,
+                    cargado: registeredDocs[doc.key] ?? false,
                   }))}
                 />
               </div>
@@ -298,7 +417,7 @@ export default function NuevoExpedientePage() {
               <Alert className="border-green-200 bg-green-50">
                 <AlertTitle>Expediente enviado</AlertTitle>
                 <AlertDescription>
-                  El expediente fue creado en borrador, se registraron documentos y quedó enviado para revisión.
+                  El expediente fue creado en borrador, se cargaron documentos y quedó enviado para revisión.
                 </AlertDescription>
               </Alert>
             ) : null}

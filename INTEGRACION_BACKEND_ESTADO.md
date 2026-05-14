@@ -1,6 +1,6 @@
 # Estado de Integración Frontend ↔ Backend
 
-Fecha de actualización: 2026-05-07  
+Fecha de actualización: 2026-05-13  
 Backend base URL: `https://comite-backend.onrender.com/api/v1`
 
 ## 1. Endpoints implementados en frontend
@@ -10,115 +10,108 @@ Backend base URL: `https://comite-backend.onrender.com/api/v1`
 | Método | Endpoint | Estado | Descripción corta |
 |---|---|---|---|
 | POST | `/auth/login` | Implementado | Login real por `application/x-www-form-urlencoded` (username/password). |
-| GET | `/users/me` | Implementado | Obtiene perfil del usuario autenticado (usado en login y vista "Mi perfil"). |
-| POST | `/auth/register` | Implementado | Registro de usuario desde formulario de creación de cuenta. |
+| GET | `/users/me` | Implementado | Perfil del usuario autenticado (usado en sesión y notificaciones). |
+| POST | `/auth/register` | Implementado | Registro de usuario desde formulario. |
 
-### 1.2 Expedientes (módulo investigador, Fase 2)
+### 1.2 Expedientes (módulo investigador)
 
 | Método | Endpoint | Estado | Descripción corta |
 |---|---|---|---|
-| GET | `/expedientes/` | Implementado | Lista expedientes del usuario (con mapeo de estado a etiquetas UI). |
-| POST | `/expedientes/` | Implementado | Crea expediente en estado borrador (RF-06). |
-| GET | `/expedientes/{id}` | Implementado | Obtiene detalle de expediente. |
-| GET | `/expedientes/{id}/bitacora` | Implementado | Recupera eventos de bitácora para timeline. |
-| GET | `/expedientes/{id}/historial` | Implementado | Recupera historial de estados para timeline. |
-| POST | `/expedientes/{id}/documentos` | Implementado | Registra metadatos de documentos (RF-08, alcance actual). |
-| POST | `/expedientes/{id}/enviar` | Implementado | Envía expediente formalmente tras crear borrador y registrar documentos. |
+| GET | `/expedientes/` | Implementado | Lista expedientes del usuario. |
+| POST | `/expedientes/` | Implementado | Crea borrador con `titulo_protocolo`, `tipo_tramite`, `facultad`, `prioridad`. |
+| GET | `/expedientes/{id}` | Implementado | Detalle de expediente. |
+| GET | `/expedientes/{id}/bitacora` | Implementado | Timeline de bitácora. |
+| GET | `/expedientes/{id}/historial` | Implementado | Historial de estado. |
+| POST | `/expedientes/{id}/documentos` | Implementado | Carga documento (`multipart/form-data`, campo `file`). |
+| POST | `/expedientes/{id}/enviar` | Implementado | Envío formal de expediente. |
 
 ### 1.3 Users (módulo administrador)
 
 | Método | Endpoint | Estado | Descripción corta |
 |---|---|---|---|
-| GET | `/users/` | Implementado | Lista usuarios para administración en `/admin/usuarios`. |
-| GET | `/users/{id}` | Implementado | Obtiene detalle puntual al abrir edición de usuario. |
-| PUT | `/users/{id}` | Implementado | Actualiza rol y estado activo/inactivo desde modal de edición. |
-| DELETE | `/users/{id}` | Implementado | Desactiva usuario (soft delete) desde listado administrativo. |
+| GET | `/users/` | Implementado | Listado de usuarios. |
+| GET | `/users/{id}` | Implementado | Detalle de usuario. |
+| PUT | `/users/{id}` | Implementado | Actualización de rol/estado activo. |
+| DELETE | `/users/{id}` | Implementado | Desactivación de usuario. |
 
-### 1.4 Evaluación (Fase 3)
+### 1.4 Evaluación (módulo evaluador/coordinador)
 
 | Método | Endpoint | Estado | Descripción corta |
 |---|---|---|---|
-| GET | `/evaluacion/` | Implementado | Servicio y hook para listado general por rol (`useEvaluaciones`). |
-| POST | `/evaluacion/` | Implementado | Servicio y hook para crear evaluación desde expediente (`useCrearEvaluacion`). |
-| GET | `/evaluacion/mis-evaluaciones` | Implementado | Bandeja del evaluador conectada a backend (`/evaluador/bandeja`). |
-| GET | `/evaluacion/{id}` | Implementado | Contexto de pantalla de evaluación por `evaluacion_id`. |
-| PUT | `/evaluacion/{id}` | Implementado | Envío final de evaluación (`completa=true`). |
-| POST | `/evaluacion/{id}/conflicto` | Implementado | Acción de declarar conflicto de interés desde UI de evaluación. |
-| POST | `/evaluacion/{id}/guardar-parcial` | Implementado | Guardado parcial de avance en formulario de evaluación. |
+| GET | `/evaluacion/` | Implementado | Listado de evaluaciones. |
+| POST | `/evaluacion/` | Implementado | Creación de evaluación. |
+| GET | `/evaluacion/mis-evaluaciones` | Implementado | Bandeja del evaluador. |
+| GET | `/evaluacion/{id}` | Implementado | Contexto y detalle de evaluación. |
+| PUT | `/evaluacion/{id}` | Implementado | Envío final de evaluación. |
+| POST | `/evaluacion/{id}/conflicto` | Implementado | Declaración de conflicto. |
+| POST | `/evaluacion/{id}/guardar-parcial` | Implementado | Guardado parcial. |
+| POST | `/evaluacion/expediente/{expediente_id}/asignar` | Implementado | Asignación manual por `evaluador_id`. |
+
+### 1.5 Dictamen
+
+| Método | Endpoint | Estado | Descripción corta |
+|---|---|---|---|
+| GET | `/dictamen/` | Implementado | Lista de dictámenes. |
+| POST | `/dictamen/` | Implementado | Generación de dictamen. |
+| GET | `/dictamen/{id}` | Implementado | Detalle de dictamen. |
+| PUT | `/dictamen/{id}` | Implementado | Actualización de dictamen. |
+| GET | `/dictamen/expediente/{id}` | Implementado | Dictámenes por expediente. |
+| POST | `/dictamen/{id}/firmar` | Implementado | Firma de dictamen. |
+
+### 1.6 Notificaciones
+
+| Método | Endpoint | Estado | Descripción corta |
+|---|---|---|---|
+| GET | `/notificaciones/` | Implementado | Listado en panel global (filtros todas/no leídas). |
+| POST | `/notificaciones/` | Implementado | Creación de notificación desde panel. |
+| GET | `/notificaciones/sin-leer` | Implementado | Contador para campana global. |
+| GET | `/notificaciones/{id}` | Implementado | Detalle por notificación. |
+| PUT | `/notificaciones/{id}` | Implementado | Marcar leída/no leída. |
+| POST | `/notificaciones/marcar-todas-leidas` | Implementado | Acción masiva “Marcar todas”. |
+
+### 1.7 IA
+
+| Método | Endpoint | Estado | Descripción corta |
+|---|---|---|---|
+| GET | `/ia/preanalisis/{id}` | Implementado | Bloque IA en evaluación del evaluador. |
+| GET | `/ia/detectar-inconsistencias/{id}` | Implementado | Lista de inconsistencias sugeridas. |
+| GET | `/ia/detectar-riesgos/{id}` | Implementado | Nivel/factores de riesgo sugeridos. |
+| GET | `/ia/generar-observaciones/{id}` | Implementado | Observaciones sugeridas por IA. |
+| GET | `/ia/resumen/{id}` | Implementado | Resumen IA en detalle de expediente. |
+
+### 1.8 Reportes
+
+| Método | Endpoint | Estado | Descripción corta |
+|---|---|---|---|
+| GET | `/reportes/expedientes-por-estado` | Implementado | Tabla y métricas de expedientes por estado. |
+| GET | `/reportes/tiempos-atencion` | Implementado | Tabla de tiempos de atención. |
+| GET | `/reportes/carga-evaluadores` | Implementado | Tabla de carga por evaluador. |
+| GET | `/reportes/resultados-emitidos` | Implementado | Tabla de resultados emitidos. |
+| GET | `/reportes/buscar-expedientes` | Implementado | Búsqueda filtrada por estado/fechas. |
+| GET | `/reportes/exportar` | Implementado | Exportación con manejo defensivo de respuesta JSON/archivo. |
 
 ## 2. Endpoints backend aún no integrados en frontend
 
-### 2.1 Evaluación
-
-| Método | Endpoint | Estado | Descripción corta |
-|---|---|---|---|
-| Ninguno | - | Completado | Todos los endpoints de evaluación definidos en README fueron integrados. |
-
-### 2.2 Dictamen
-
-| Método | Endpoint | Estado | Descripción corta |
-|---|---|---|---|
-| GET | `/dictamen/` | Pendiente | Listado de dictámenes. |
-| POST | `/dictamen/` | Pendiente | Generación de dictamen. |
-| GET | `/dictamen/{id}` | Pendiente | Detalle de dictamen. |
-| PUT | `/dictamen/{id}` | Pendiente | Edición de dictamen. |
-| GET | `/dictamen/expediente/{id}` | Pendiente | Obtiene dictamen por expediente. |
-| POST | `/dictamen/{id}/firmar` | Pendiente | Firma de dictamen. |
-
-### 2.3 Notificaciones
-
-| Método | Endpoint | Estado | Descripción corta |
-|---|---|---|---|
-| GET | `/notificaciones/` | Pendiente | Listado de notificaciones del usuario. |
-| POST | `/notificaciones/` | Pendiente | Creación de notificación. |
-| GET | `/notificaciones/sin-leer` | Pendiente | Conteo de no leídas. |
-| GET | `/notificaciones/{id}` | Pendiente | Detalle de notificación. |
-| PUT | `/notificaciones/{id}` | Pendiente | Marcar leída/no leída. |
-| POST | `/notificaciones/marcar-todas-leidas` | Pendiente | Marcar todas como leídas. |
-
-### 2.4 Reportes e IA
-
-| Método | Endpoint | Estado | Descripción corta |
-|---|---|---|---|
-| GET | `/reportes/expedientes-por-estado` | Pendiente | Dashboard por estado. |
-| GET | `/reportes/tiempos-atencion` | Pendiente | Métrica de tiempos de atención. |
-| GET | `/reportes/carga-evaluadores` | Pendiente | Carga por evaluador. |
-| GET | `/reportes/resultados-emitidos` | Pendiente | Dictámenes por tipo. |
-| GET | `/reportes/buscar-expedientes` | Pendiente | Búsqueda filtrada de expedientes. |
-| GET | `/reportes/exportar` | Pendiente | Exportación de reporte. |
-| GET | `/ia/preanalisis/{id}` | Pendiente | Preanálisis IA del expediente. |
-| GET | `/ia/detectar-inconsistencias/{id}` | Pendiente | Detección IA de inconsistencias. |
-| GET | `/ia/detectar-riesgos/{id}` | Pendiente | Detección IA de riesgos. |
-| GET | `/ia/generar-observaciones/{id}` | Pendiente | Sugerencias IA de observaciones. |
-| GET | `/ia/resumen/{id}` | Pendiente | Resumen IA del expediente. |
+| Módulo | Estado |
+|---|---|
+| Auth / Users / Expedientes / Evaluación / Dictamen / Notificaciones / IA / Reportes | Completado |
 
 ## 3. Observaciones técnicas y funcionales
 
-1. `POST /expedientes/` (RF-06) actualmente acepta solo `titulo_protocolo`.
-   - Frontend conserva campos UI (`tipoTramite`, `facultad`, `resumen`) como datos de formulario, pero backend no los persiste aún.
-2. `POST /expedientes/{id}/documentos` (RF-08) está integrado en alcance de metadatos.
-   - Se envían `nombre_archivo`, `tipo_documento`, `es_obligatorio`.
-   - No hay carga binaria de archivos todavía (faltaría RF-10 / almacenamiento físico).
-3. El endpoint de documentos está definido en OpenAPI con parámetros `query`.
-   - No está modelado como `multipart/form-data` con archivo.
-4. En vistas de detalle se usan fallbacks UI para campos no expuestos aún por backend (`facultad`, `prioridad`, etc.).
-5. El flujo actual del wizard quedó alineado así:
-   - Crear borrador → Registrar metadatos de documentos → Enviar expediente.
-6. Subsanación sigue parcialmente adaptada.
-   - El frontend hoy reutiliza envío para reenvío porque no existe endpoint específico para persistir respuestas por observación.
-7. Módulo `Users` quedó operativo para administración básica.
-   - Se soporta listado, consulta por ID, edición de `rol`/`activo` y desactivación.
-   - El backend define `DELETE /users/{id}` con respuesta sin esquema estricto en OpenAPI; frontend maneja solo éxito/error.
-8. Módulo `Evaluación` quedó operativo con endpoints reales.
-   - La ruta del frontend `/evaluador/evaluacion/[id]` ahora usa `id` como `evaluacion_id`, no como `expediente_id`.
-   - `guardar-parcial` y `conflicto` retornan `message` según README; OpenAPI los declara con esquema de respuesta vacío.
-   - OpenAPI no declara `recommendation` en `EvaluacionResponse`, pero README sí. Frontend lo maneja como campo opcional para evitar ruptura.
-9. Módulo de asignación de coordinador quedó adaptado a lógica automática actual.
-   - Se usa `POST /evaluacion/` para asignar evaluadores de forma implícita por backend.
-   - No existe endpoint para seleccionar evaluadores manualmente por `evaluador_id`; frontend muestra esta limitación en UI.
+1. No existe `GET /expedientes/{id}/documentos`.
+   - Secretaría e investigador aún no pueden validar en detalle la lista real de archivos cargados desde backend.
+2. IA responde sin schema fuerte en OpenAPI (`{}` para 200 en todos los endpoints).
+   - Frontend usa normalización defensiva y mensaje funcional para permisos (`403`) o payload parcial.
+3. En pruebas reales de backend:
+   - IA responde datos placeholder/mensajes de integración parcial en algunos endpoints.
+4. `reportes/exportar` puede responder mensaje JSON en lugar de binario.
+   - Frontend ya soporta ambos escenarios.
+5. Subsanación continúa parcialmente adaptada.
+   - Falta endpoint explícito de respuestas por observación.
 
 ## 4. Recomendaciones de siguiente iteración
 
-1. Definir contrato extendido de `ExpedienteCreate` si se requiere persistir campos UI adicionales.
-2. Definir endpoint formal de subsanación con payload de respuestas observación por observación.
-3. Evolucionar `POST /expedientes/{id}/documentos` a multipart real cuando se implemente carga física.
+1. Exponer `GET /expedientes/{id}/documentos` para eliminar checklist fijo y mostrar trazabilidad real de archivos.
+2. Definir schemas OpenAPI de respuesta para IA y reportes (evita normalización heurística en frontend).
+3. Definir endpoint formal de subsanación con payload estructurado por observación.
+4. Si se requiere descarga formal de dictamen PDF, exponer `archivo_url` o endpoint dedicado.

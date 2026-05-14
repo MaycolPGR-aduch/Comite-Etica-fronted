@@ -1,13 +1,21 @@
-import {
-  expedientesMock,
-  historialMock,
-  metricasCoordinadorMock,
-  metricasInvestigadorMock,
-  metricasSecretariaMock,
-} from "@/mocks";
 import type { Expediente, HistorialEvento, Metrica } from "@/types";
 
-import { clone, wait } from "./service-utils";
+import { expedientesService } from "./expedientes.service";
+
+const sortByDateDesc = (items: Expediente[]) =>
+  [...items].sort(
+    (a, b) => new Date(b.fechaRegistro).getTime() - new Date(a.fechaRegistro).getTime(),
+  );
+
+const toActividad = (expedientes: Expediente[]): HistorialEvento[] =>
+  sortByDateDesc(expedientes).slice(0, 6).map((item) => ({
+    id: `actividad-exp-${item.id}`,
+    expedienteId: item.id,
+    titulo: `Estado: ${item.estado}`,
+    descripcion: `${item.codigo} - ${item.titulo}`,
+    actor: "Sistema",
+    fecha: item.fechaRegistro,
+  }));
 
 export const dashboardService = {
   async getInvestigadorDashboard(): Promise<{
@@ -15,39 +23,100 @@ export const dashboardService = {
     recientes: Expediente[];
     actividad: HistorialEvento[];
   }> {
-    await wait();
+    const expedientes = await expedientesService.list();
+    const recientes = sortByDateDesc(expedientes).slice(0, 5);
 
-    const recientes = expedientesMock.slice(0, 5);
-    const actividad = historialMock.slice(0, 6);
+    const metricas: Metrica[] = [
+      { id: "mi-total", titulo: "Mis expedientes", valor: expedientes.length },
+      {
+        id: "mi-borrador",
+        titulo: "Borradores",
+        valor: expedientes.filter((item) => item.estado === "Borrador").length,
+      },
+      {
+        id: "mi-revision",
+        titulo: "En revisión",
+        valor: expedientes.filter((item) => item.estado === "En revisión administrativa").length,
+      },
+      {
+        id: "mi-asignado",
+        titulo: "Asignados",
+        valor: expedientes.filter((item) => item.estado === "Asignado").length,
+      },
+    ];
 
-    return clone({
-      metricas: metricasInvestigadorMock,
+    return {
+      metricas,
       recientes,
-      actividad,
-    });
+      actividad: toActividad(expedientes),
+    };
   },
 
   async getSecretariaResumen(): Promise<{ metricas: Metrica[]; expedientes: Expediente[] }> {
-    await wait();
-
-    const expedientes = expedientesMock.filter(
+    const expedientes = await expedientesService.list();
+    const visibles = expedientes.filter(
       (item) =>
         item.estado === "Enviado" ||
         item.estado === "En revisión administrativa" ||
-        item.estado === "Observado por admisibilidad" ||
         item.estado === "Subsanado",
     );
 
-    return clone({ metricas: metricasSecretariaMock, expedientes });
+    const metricas: Metrica[] = [
+      { id: "sec-total", titulo: "Recibidos", valor: visibles.length },
+      {
+        id: "sec-enviado",
+        titulo: "Pendientes de revisión",
+        valor: visibles.filter((item) => item.estado === "Enviado").length,
+      },
+      {
+        id: "sec-revision",
+        titulo: "En revisión administrativa",
+        valor: visibles.filter((item) => item.estado === "En revisión administrativa").length,
+      },
+      {
+        id: "sec-subsanacion",
+        titulo: "En subsanación",
+        valor: visibles.filter((item) => item.estado === "Subsanado").length,
+      },
+    ];
+
+    return { metricas, expedientes: sortByDateDesc(visibles) };
   },
 
   async getCoordinadorDashboard(): Promise<{ metricas: Metrica[]; expedientes: Expediente[] }> {
-    await wait();
-
-    const expedientes = expedientesMock.filter((item) =>
-      ["Admitido", "Asignado", "En evaluación", "Evaluaciones completas"].includes(item.estado),
+    const expedientes = await expedientesService.list();
+    const visibles = expedientes.filter(
+      (item) =>
+        item.estado === "En revisión administrativa" ||
+        item.estado === "Asignado" ||
+        item.estado === "En evaluación" ||
+        item.estado === "Evaluaciones completas",
     );
 
-    return clone({ metricas: metricasCoordinadorMock, expedientes });
+    const metricas: Metrica[] = [
+      {
+        id: "coord-revision",
+        titulo: "En revisión",
+        valor: visibles.filter((item) => item.estado === "En revisión administrativa").length,
+      },
+      {
+        id: "coord-asignado",
+        titulo: "Asignados",
+        valor: visibles.filter((item) => item.estado === "Asignado").length,
+      },
+      {
+        id: "coord-evaluacion",
+        titulo: "En evaluación",
+        valor: visibles.filter((item) => item.estado === "En evaluación").length,
+      },
+      {
+        id: "coord-completos",
+        titulo: "Evaluaciones completas",
+        valor: visibles.filter((item) => item.estado === "Evaluaciones completas").length,
+      },
+      { id: "coord-total", titulo: "Total visibles", valor: visibles.length },
+    ];
+
+    return { metricas, expedientes: sortByDateDesc(visibles) };
   },
 };

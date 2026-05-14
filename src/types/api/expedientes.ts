@@ -1,6 +1,9 @@
 export interface ExpedienteResponseDto {
   id: number;
   titulo_protocolo: string;
+  tipo_tramite: string | null;
+  facultad: string | null;
+  prioridad: string;
   codigo_unico: string | null;
   investigador_id: number;
   estado: string;
@@ -10,6 +13,14 @@ export interface ExpedienteResponseDto {
 
 export interface ExpedienteCreateRequestDto {
   titulo_protocolo: string;
+  tipo_tramite?: string | null;
+  facultad?: string | null;
+  prioridad?: string | null;
+}
+
+export interface ExpedienteUpdateRequestDto {
+  titulo_protocolo?: string | null;
+  estado?: string | null;
 }
 
 export interface ExpedienteEnviarResponseDto {

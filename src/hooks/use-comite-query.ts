@@ -10,15 +10,20 @@ import {
   dashboardService,
   evaluacionService,
   expedientesService,
+  iaService,
+  notificationsService,
+  reportesService,
   revisionAdministrativaService,
   usersService,
 } from "@/services";
 import type {
   Evaluacion,
   ExpedienteStatus,
+  NotificacionCreatePayload,
   LoginPayload,
   RegisterPayload,
   Recommendation,
+  ReporteExportResult,
   Role,
   RiskLevel,
 } from "@/types";
@@ -35,8 +40,35 @@ export const queryKeys = {
   asignacionContexto: (id: string) => ["asignacion", id] as const,
   evaluadores: ["evaluadores"] as const,
   consolidacion: (id: string) => ["consolidacion", id] as const,
+  dictamenes: ["dictamenes"] as const,
+  dictamen: (id: string) => ["dictamen", id] as const,
+  dictamenesExpediente: (expedienteId: string) => ["dictamenes", "expediente", expedienteId] as const,
   configuracion: ["configuracion"] as const,
   profile: ["auth", "profile"] as const,
+  notificaciones: (filter?: "all" | "unread") => ["notificaciones", filter ?? "all"] as const,
+  notificacion: (id: string) => ["notificaciones", id] as const,
+  notificacionesSinLeer: ["notificaciones", "sin-leer"] as const,
+  iaPreanalisis: (expedienteId: string) => ["ia", "preanalisis", expedienteId] as const,
+  iaInconsistencias: (expedienteId: string) => ["ia", "inconsistencias", expedienteId] as const,
+  iaRiesgos: (expedienteId: string) => ["ia", "riesgos", expedienteId] as const,
+  iaObservaciones: (expedienteId: string) => ["ia", "observaciones", expedienteId] as const,
+  iaResumen: (expedienteId: string) => ["ia", "resumen", expedienteId] as const,
+  reportesExpedientesEstado: ["reportes", "expedientes-estado"] as const,
+  reportesTiemposAtencion: ["reportes", "tiempos-atencion"] as const,
+  reportesCargaEvaluadores: ["reportes", "carga-evaluadores"] as const,
+  reportesResultadosEmitidos: ["reportes", "resultados-emitidos"] as const,
+  reportesBusquedaExpedientes: (filters?: {
+    estado?: string;
+    fechaInicio?: string;
+    fechaFin?: string;
+  }) =>
+    [
+      "reportes",
+      "buscar-expedientes",
+      filters?.estado ?? "",
+      filters?.fechaInicio ?? "",
+      filters?.fechaFin ?? "",
+    ] as const,
   users: ["users"] as const,
   user: (id: string) => ["users", id] as const,
 };
@@ -56,6 +88,66 @@ export const useMyProfile = () =>
     queryKey: queryKeys.profile,
     queryFn: () => authService.getMyProfile(),
   });
+
+export const useNotificaciones = (filter: "all" | "unread" = "all") =>
+  useQuery({
+    queryKey: queryKeys.notificaciones(filter),
+    queryFn: async () => {
+      const notifications = await notificationsService.list();
+      return filter === "unread" ? notifications.filter((item) => !item.leida) : notifications;
+    },
+  });
+
+export const useNotificacionById = (id: string) =>
+  useQuery({
+    queryKey: queryKeys.notificacion(id),
+    queryFn: () => notificationsService.getById(id),
+    enabled: Boolean(id),
+  });
+
+export const useNotificacionesSinLeer = () =>
+  useQuery({
+    queryKey: queryKeys.notificacionesSinLeer,
+    queryFn: () => notificationsService.getUnreadCount(),
+  });
+
+export const useCrearNotificacion = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: NotificacionCreatePayload) => notificationsService.create(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.notificaciones("all") });
+      queryClient.invalidateQueries({ queryKey: queryKeys.notificaciones("unread") });
+      queryClient.invalidateQueries({ queryKey: queryKeys.notificacionesSinLeer });
+    },
+  });
+};
+
+export const useMarcarNotificacionLeida = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, leida }: { id: string; leida: boolean }) =>
+      notificationsService.updateReadStatus(id, leida),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.notificacion(variables.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.notificaciones("all") });
+      queryClient.invalidateQueries({ queryKey: queryKeys.notificaciones("unread") });
+      queryClient.invalidateQueries({ queryKey: queryKeys.notificacionesSinLeer });
+    },
+  });
+};
+
+export const useMarcarTodasNotificacionesLeidas = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => notificationsService.markAllAsRead(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.notificaciones("all") });
+      queryClient.invalidateQueries({ queryKey: queryKeys.notificaciones("unread") });
+      queryClient.invalidateQueries({ queryKey: queryKeys.notificacionesSinLeer });
+    },
+  });
+};
 
 export const useExpedientes = (status?: ExpedienteStatus) =>
   useQuery({
@@ -77,12 +169,12 @@ export const useRegistrarDocumentoExpediente = () =>
   useMutation({
     mutationFn: (payload: {
       expedienteId: string;
-      nombreArchivo: string;
+      file: File;
       tipoDocumento: string;
       esObligatorio?: boolean;
     }) =>
       expedientesService.registrarDocumento(payload.expedienteId, {
-        nombreArchivo: payload.nombreArchivo,
+        file: payload.file,
         tipoDocumento: payload.tipoDocumento,
         esObligatorio: payload.esObligatorio,
       }),
@@ -121,7 +213,20 @@ export const usePendientesRevisionAdministrativa = () =>
   });
 
 export const useRegistrarRevisionAdministrativa = () =>
-  useMutation({ mutationFn: revisionAdministrativaService.registrarRevision });
+  {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+      mutationFn: revisionAdministrativaService.registrarRevision,
+      onSuccess: (_, payload) => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.bandejaSecretaria });
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboardCoordinador });
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboardInvestigador });
+        queryClient.invalidateQueries({ queryKey: ["expedientes"] });
+        queryClient.invalidateQueries({ queryKey: queryKeys.expediente(payload.expedienteId) });
+      },
+    });
+  };
 
 export const useEvaluadoresDisponibles = () =>
   useQuery({
@@ -146,6 +251,7 @@ export const useAsignarEvaluadores = () =>
         queryClient.invalidateQueries({ queryKey: queryKeys.evaluaciones });
         queryClient.invalidateQueries({ queryKey: queryKeys.bandejaEvaluador });
         queryClient.invalidateQueries({ queryKey: queryKeys.dashboardCoordinador });
+        queryClient.invalidateQueries({ queryKey: ["expedientes"] });
       },
     });
   };
@@ -179,6 +285,41 @@ export const useContextoEvaluacion = (id: string) =>
     queryKey: queryKeys.evaluacion(id),
     queryFn: () => evaluacionService.getContextoEvaluacion(id),
     enabled: Boolean(id),
+  });
+
+export const useIAPreanalisis = (expedienteId: string) =>
+  useQuery({
+    queryKey: queryKeys.iaPreanalisis(expedienteId),
+    queryFn: () => iaService.getPreanalisis(expedienteId),
+    enabled: Boolean(expedienteId),
+  });
+
+export const useIAInconsistencias = (expedienteId: string) =>
+  useQuery({
+    queryKey: queryKeys.iaInconsistencias(expedienteId),
+    queryFn: () => iaService.getInconsistencias(expedienteId),
+    enabled: Boolean(expedienteId),
+  });
+
+export const useIARiesgos = (expedienteId: string) =>
+  useQuery({
+    queryKey: queryKeys.iaRiesgos(expedienteId),
+    queryFn: () => iaService.getRiesgos(expedienteId),
+    enabled: Boolean(expedienteId),
+  });
+
+export const useIAObservacionesSugeridas = (expedienteId: string) =>
+  useQuery({
+    queryKey: queryKeys.iaObservaciones(expedienteId),
+    queryFn: () => iaService.getObservacionesSugeridas(expedienteId),
+    enabled: Boolean(expedienteId),
+  });
+
+export const useIAResumen = (expedienteId: string) =>
+  useQuery({
+    queryKey: queryKeys.iaResumen(expedienteId),
+    queryFn: () => iaService.getResumen(expedienteId),
+    enabled: Boolean(expedienteId),
   });
 
 export const useDeclararConflictoEvaluacion = () => {
@@ -220,13 +361,137 @@ export const useConsolidacion = (id: string) =>
     enabled: Boolean(id),
   });
 
-export const useGenerarDictamen = () =>
-  useMutation({ mutationFn: ({ expedienteId, decisionFinal, resumen }: { expedienteId: string; decisionFinal: "Aprobado" | "Desaprobado" | "Observado"; resumen: string }) => consolidacionService.generarDictamenMock(expedienteId, decisionFinal, resumen) });
+export const useDictamenes = () =>
+  useQuery({
+    queryKey: queryKeys.dictamenes,
+    queryFn: () => consolidacionService.listDictamenes(),
+  });
+
+export const useDictamenById = (id: string) =>
+  useQuery({
+    queryKey: queryKeys.dictamen(id),
+    queryFn: () => consolidacionService.getDictamenById(id),
+    enabled: Boolean(id),
+  });
+
+export const useDictamenesPorExpediente = (expedienteId: string) =>
+  useQuery({
+    queryKey: queryKeys.dictamenesExpediente(expedienteId),
+    queryFn: () => consolidacionService.getDictamenesByExpediente(expedienteId),
+    enabled: Boolean(expedienteId),
+  });
+
+export const useGenerarDictamen = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      expedienteId,
+      decisionFinal,
+      resumen,
+    }: {
+      expedienteId: string;
+      decisionFinal: "Aprobado" | "Desaprobado" | "Observado";
+      resumen: string;
+    }) => consolidacionService.generarDictamen({ expedienteId, decisionFinal, resumen }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dictamenes });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dictamenesExpediente(variables.expedienteId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.consolidacion(variables.expedienteId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.expediente(variables.expedienteId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardInvestigador });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardCoordinador });
+    },
+  });
+};
+
+export const useActualizarDictamen = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: {
+      dictamenId: string;
+      contenido?: string;
+      firmado?: boolean;
+      expedienteId: string;
+    }) =>
+      consolidacionService.actualizarDictamen(payload.dictamenId, {
+        contenido: payload.contenido,
+        firmado: payload.firmado,
+      }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dictamenes });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dictamen(variables.dictamenId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dictamenesExpediente(variables.expedienteId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.consolidacion(variables.expedienteId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.expediente(variables.expedienteId) });
+    },
+  });
+};
+
+export const useFirmarDictamen = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: {
+      dictamenId: string;
+      expedienteId: string;
+    }) => consolidacionService.firmarDictamen(payload.dictamenId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.dictamenes });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dictamen(variables.dictamenId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dictamenesExpediente(variables.expedienteId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.consolidacion(variables.expedienteId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.expediente(variables.expedienteId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardInvestigador });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardCoordinador });
+    },
+  });
+};
 
 export const useConfiguracionCatalogos = () =>
   useQuery({
     queryKey: queryKeys.configuracion,
     queryFn: () => configuracionService.getCatalogos(),
+  });
+
+export const useReporteExpedientesPorEstado = () =>
+  useQuery({
+    queryKey: queryKeys.reportesExpedientesEstado,
+    queryFn: () => reportesService.getExpedientesPorEstado(),
+  });
+
+export const useReporteTiemposAtencion = () =>
+  useQuery({
+    queryKey: queryKeys.reportesTiemposAtencion,
+    queryFn: () => reportesService.getTiemposAtencion(),
+  });
+
+export const useReporteCargaEvaluadores = () =>
+  useQuery({
+    queryKey: queryKeys.reportesCargaEvaluadores,
+    queryFn: () => reportesService.getCargaEvaluadores(),
+  });
+
+export const useReporteResultadosEmitidos = () =>
+  useQuery({
+    queryKey: queryKeys.reportesResultadosEmitidos,
+    queryFn: () => reportesService.getResultadosEmitidos(),
+  });
+
+export const useReporteBuscarExpedientes = (filters?: {
+  estado?: string;
+  fechaInicio?: string;
+  fechaFin?: string;
+}) =>
+  useQuery({
+    queryKey: queryKeys.reportesBusquedaExpedientes(filters),
+    queryFn: () => reportesService.buscarExpedientes(filters),
+  });
+
+export const useExportarReporte = () =>
+  useMutation({
+    mutationFn: (tipo: string): Promise<ReporteExportResult> => reportesService.exportar(tipo),
   });
 
 export const useUsers = () =>

@@ -93,11 +93,15 @@ export interface Evaluacion {
 }
 
 export interface Dictamen {
+  id?: string;
   expedienteId: string;
+  numero?: string;
+  tipo?: string;
   decisionFinal: "Aprobado" | "Desaprobado" | "Observado";
   resumen: string;
+  firmado?: boolean;
   fecha: string;
-  url: string;
+  url?: string;
 }
 
 export interface Expediente {
@@ -161,4 +165,103 @@ export interface ConsolidacionResultado {
   coincidencias: string[];
   discrepancias: string[];
   dictamen?: Dictamen;
+}
+
+export interface Notificacion {
+  id: string;
+  titulo: string;
+  mensaje: string;
+  expedienteId?: string;
+  usuarioId: string;
+  leida: boolean;
+  createdAt: string;
+}
+
+export interface NotificacionCreatePayload {
+  titulo: string;
+  mensaje: string;
+  usuarioId: string;
+  expedienteId?: string;
+}
+
+export interface NotificacionSinLeer {
+  sinLeer: number;
+}
+
+export interface IAPreanalisis {
+  expedienteId: string;
+  titulo: string;
+  estado: string;
+  resumenIA: string;
+  recomendaciones: string[];
+  isPlaceholder: boolean;
+  mensaje?: string;
+}
+
+export interface IAInconsistencias {
+  inconsistencias: string[];
+  mensaje?: string;
+  isPlaceholder: boolean;
+}
+
+export interface IARiesgos {
+  nivelRiesgo: string;
+  factores: string[];
+  mensaje?: string;
+  isPlaceholder: boolean;
+}
+
+export interface IAObservacionesSugeridas {
+  observacionesSugeridas: string[];
+  mensaje?: string;
+  isPlaceholder: boolean;
+}
+
+export interface IAResumenExpediente {
+  expedienteId: string;
+  titulo: string;
+  estado: string;
+  documentosCount: number;
+  resumen: string;
+  isPlaceholder: boolean;
+}
+
+export interface ReporteExpedientesPorEstado {
+  estado: string;
+  total: number;
+}
+
+export interface ReporteTiempoAtencion {
+  expedienteId: string;
+  codigo: string;
+  dias: number;
+  estado: string;
+}
+
+export interface ReporteCargaEvaluador {
+  evaluadorId: string;
+  total: number;
+}
+
+export interface ReporteResultadoEmitido {
+  decision: string;
+  total: number;
+}
+
+export interface ReporteBusquedaExpediente {
+  id: string;
+  codigoUnico: string;
+  tituloProtocolo: string;
+  investigadorId: string;
+  tipoTramite: string;
+  facultad: string;
+  prioridad: string;
+  estado: string;
+  fechaEnvio?: string;
+  fechaCreacion?: string;
+}
+
+export interface ReporteExportResult {
+  mensaje: string;
+  formato?: string;
 }

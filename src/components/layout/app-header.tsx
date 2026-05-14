@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 
 import { roleLabel, roleNavigation, resolveRoleFromPath } from "@/lib/navigation";
 import { clearAuthSession } from "@/services/auth-session";
+import { NotificationsPanel } from "@/components/layout/notifications-panel";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -24,6 +25,7 @@ const titleBySegment: Record<string, string> = {
   asignacion: "Asignacion de evaluadores",
   evaluacion: "Evaluacion etica",
   consolidacion: "Consolidacion y dictamen",
+  reportes: "Reportes",
   usuarios: "Usuarios",
   configuracion: "Configuracion",
   subsanacion: "Subsanacion",
@@ -85,13 +87,16 @@ export function AppHeader() {
           </div>
         </div>
 
-        <Link
-          className="text-sm text-[#0B57B7] hover:underline"
-          href="/login"
-          onClick={() => clearAuthSession()}
-        >
-          Cerrar demo
-        </Link>
+        <div className="flex items-center gap-2">
+          <NotificationsPanel />
+          <Link
+            className="text-sm text-[#0B57B7] hover:underline"
+            href="/login"
+            onClick={() => clearAuthSession()}
+          >
+            Cerrar demo
+          </Link>
+        </div>
       </div>
     </header>
   );

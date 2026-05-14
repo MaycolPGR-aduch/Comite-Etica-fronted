@@ -2,6 +2,10 @@ export interface EvaluacionCreateRequestDto {
   expediente_id: number;
 }
 
+export interface EvaluacionAsignarRequestDto {
+  evaluador_id: number;
+}
+
 export interface EvaluacionUpdateRequestDto {
   nivel_riesgo?: string | null;
   recommendation?: string | null;

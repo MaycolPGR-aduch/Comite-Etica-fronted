@@ -4,6 +4,10 @@ import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import {
+  useIAInconsistencias,
+  useIAObservacionesSugeridas,
+  useIAPreanalisis,
+  useIARiesgos,
   useContextoEvaluacion,
   useDeclararConflictoEvaluacion,
   useGuardarEvaluacion,
@@ -22,6 +26,11 @@ export default function EvaluacionEticaPage() {
   const { data, isLoading, error } = useContextoEvaluacion(evaluacionId);
   const mutation = useGuardarEvaluacion();
   const conflictoMutation = useDeclararConflictoEvaluacion();
+  const expedienteId = data?.expediente.id ?? "";
+  const preanalisisQuery = useIAPreanalisis(expedienteId);
+  const inconsistenciasQuery = useIAInconsistencias(expedienteId);
+  const riesgosQuery = useIARiesgos(expedienteId);
+  const observacionesIAQuery = useIAObservacionesSugeridas(expedienteId);
 
   const [draftRiesgo, setDraftRiesgo] = useState<RiskLevel | null>(null);
   const [draftRecomendacion, setDraftRecomendacion] = useState<Recommendation | null>(null);
@@ -100,12 +109,90 @@ export default function EvaluacionEticaPage() {
 
         <Card className="border-[#6941C6]/30 bg-[#F3EDFF]">
           <CardHeader>
-            <CardTitle className="text-[#6941C6]">Apoyo IA (mock)</CardTitle>
+            <CardTitle className="text-[#6941C6]">Apoyo IA</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-[#4A3A88]">
-            <p>- Posible inconsistencia entre tamano muestral y objetivo secundario.</p>
-            <p>- Reforzar redaccion del consentimiento para menores de edad.</p>
-            <p className="font-medium">Estas sugerencias no son vinculantes.</p>
+            {preanalisisQuery.isLoading ||
+            inconsistenciasQuery.isLoading ||
+            riesgosQuery.isLoading ||
+            observacionesIAQuery.isLoading ? (
+              <p>Cargando sugerencias IA...</p>
+            ) : null}
+
+            {preanalisisQuery.isError ||
+            inconsistenciasQuery.isError ||
+            riesgosQuery.isError ||
+            observacionesIAQuery.isError ? (
+              <p className="text-red-700">
+                {(preanalisisQuery.error as Error | undefined)?.message ||
+                  (inconsistenciasQuery.error as Error | undefined)?.message ||
+                  (riesgosQuery.error as Error | undefined)?.message ||
+                  (observacionesIAQuery.error as Error | undefined)?.message ||
+                  "No se pudo recuperar el apoyo IA."}
+              </p>
+            ) : null}
+
+            {!preanalisisQuery.isLoading &&
+            !inconsistenciasQuery.isLoading &&
+            !riesgosQuery.isLoading &&
+            !observacionesIAQuery.isLoading &&
+            !preanalisisQuery.isError &&
+            !inconsistenciasQuery.isError &&
+            !riesgosQuery.isError &&
+            !observacionesIAQuery.isError ? (
+              <div className="space-y-2">
+                <p>
+                  <strong>Resumen IA:</strong> {preanalisisQuery.data?.resumenIA}
+                </p>
+                <p>
+                  <strong>Nivel de riesgo sugerido:</strong> {riesgosQuery.data?.nivelRiesgo}
+                </p>
+
+                {preanalisisQuery.data?.recomendaciones?.length ? (
+                  <div>
+                    <p className="font-medium">Recomendaciones:</p>
+                    <ul className="list-disc space-y-1 pl-5">
+                      {preanalisisQuery.data.recomendaciones.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {inconsistenciasQuery.data?.inconsistencias?.length ? (
+                  <div>
+                    <p className="font-medium">Inconsistencias detectadas:</p>
+                    <ul className="list-disc space-y-1 pl-5">
+                      {inconsistenciasQuery.data.inconsistencias.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p>Sin inconsistencias detectadas por IA.</p>
+                )}
+
+                {observacionesIAQuery.data?.observacionesSugeridas?.length ? (
+                  <div>
+                    <p className="font-medium">Observaciones sugeridas:</p>
+                    <ul className="list-disc space-y-1 pl-5">
+                      {observacionesIAQuery.data.observacionesSugeridas.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p>Sin observaciones sugeridas por IA.</p>
+                )}
+
+                {preanalisisQuery.data?.isPlaceholder ||
+                inconsistenciasQuery.data?.isPlaceholder ||
+                riesgosQuery.data?.isPlaceholder ||
+                observacionesIAQuery.data?.isPlaceholder ? (
+                  <p className="font-medium">Resultado preliminar: puede requerir revisión manual.</p>
+                ) : null}
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       </div>

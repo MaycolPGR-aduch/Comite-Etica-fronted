@@ -1,7 +1,6 @@
-import { expedientesMock, observacionesMock } from "@/mocks";
 import type { Expediente, Observacion } from "@/types";
 
-import { clone, wait } from "./service-utils";
+import { expedientesService } from "./expedientes.service";
 
 export interface RevisionAdministrativaPayload {
   expedienteId: string;
@@ -11,31 +10,38 @@ export interface RevisionAdministrativaPayload {
 
 export const revisionAdministrativaService = {
   async getPendientes(): Promise<Expediente[]> {
-    await wait();
-    return clone(
-      expedientesMock.filter(
-        (expediente) =>
-          expediente.estado === "En revisión administrativa" ||
-          expediente.estado === "Subsanado",
-      ),
+    const expedientes = await expedientesService.list();
+
+    return expedientes.filter(
+      (expediente) =>
+        expediente.estado === "Enviado" ||
+        expediente.estado === "En revisión administrativa" ||
+        expediente.estado === "Subsanado",
     );
   },
 
-  async getObservaciones(expedienteId: string): Promise<Observacion[]> {
-    await wait();
-    return clone(observacionesMock.filter((item) => item.expedienteId === expedienteId));
+  async getObservaciones(): Promise<Observacion[]> {
+    return [];
   },
 
   async registrarRevision(
     payload: RevisionAdministrativaPayload,
   ): Promise<{ estado: string; mensaje: string }> {
-    await wait();
+    const nextState = payload.admitir ? "en_revision" : "subsanacion";
+
+    const updated = await expedientesService.update(payload.expedienteId, {
+      estado: nextState,
+    });
 
     return payload.admitir
-      ? { estado: "Admitido", mensaje: "Expediente admitido correctamente." }
+      ? {
+          estado: updated.estado,
+          mensaje:
+            "Expediente marcado en revisión administrativa y enviado al flujo del coordinador.",
+        }
       : {
-          estado: "Observado por admisibilidad",
-          mensaje: "Expediente devuelto para subsanacion administrativa.",
+          estado: updated.estado,
+          mensaje: "Expediente devuelto para subsanación administrativa.",
         };
   },
 };

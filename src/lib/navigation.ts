@@ -22,13 +22,14 @@ export const roleNavigation: Record<Role, NavItem[]> = {
   ],
   secretaria: [
     { href: "/secretaria/bandeja", label: "Bandeja" },
-    { href: "/secretaria/revision/exp-003", label: "Revision administrativa" },
+    { href: "/secretaria/bandeja", label: "Revision administrativa" },
     { href: "/secretaria/perfil", label: "Mi perfil" },
   ],
   coordinador: [
     { href: "/coordinador/dashboard", label: "Dashboard" },
-    { href: "/coordinador/asignacion/exp-004", label: "Asignacion" },
-    { href: "/coordinador/consolidacion/exp-007", label: "Consolidacion" },
+    { href: "/coordinador/dashboard", label: "Asignacion" },
+    { href: "/coordinador/dashboard", label: "Consolidacion" },
+    { href: "/coordinador/reportes", label: "Reportes" },
     { href: "/coordinador/perfil", label: "Mi perfil" },
   ],
   evaluador: [
@@ -39,6 +40,7 @@ export const roleNavigation: Record<Role, NavItem[]> = {
   administrador: [
     { href: "/admin/usuarios", label: "Usuarios" },
     { href: "/admin/configuracion", label: "Configuracion" },
+    { href: "/admin/reportes", label: "Reportes" },
     { href: "/admin/perfil", label: "Mi perfil" },
   ],
 };

@@ -6,7 +6,7 @@ import { usersService } from "./users.service";
 
 export interface AsignacionPayload {
   expedienteId: string;
-  cantidad?: number;
+  evaluadorIds: string[];
 }
 
 const parseNumericId = (value: string, entityName: string): number => {
@@ -50,21 +50,27 @@ export const asignacionService = {
     );
 
     const restantes = objetivoTotal - asignadas.length;
-    const solicitadas = Math.min(payload.cantidad ?? restantes, Math.max(restantes, 0));
-
-    if (restantes <= 0 || solicitadas <= 0) {
+    if (restantes <= 0) {
       return { message: "Este expediente ya tiene 2 evaluadores asignados." };
     }
 
-    for (let index = 0; index < solicitadas; index += 1) {
-      await evaluacionService.create(String(expedienteId));
+    const evaluadoresAsignadosIds = new Set(asignadas.map((item) => item.evaluadorId));
+    const candidatos = Array.from(
+      new Set(payload.evaluadorIds.map((value) => String(parseNumericId(value, "evaluador")))),
+    ).filter((evaluadorId) => !evaluadoresAsignadosIds.has(evaluadorId));
+
+    if (candidatos.length === 0) {
+      return { message: "No hay evaluadores nuevos para asignar." };
+    }
+
+    const asignacionesEfectivas = candidatos.slice(0, restantes);
+
+    for (const evaluadorId of asignacionesEfectivas) {
+      await evaluacionService.asignarEvaluadorManual(String(expedienteId), evaluadorId);
     }
 
     return {
-      message:
-        solicitadas === 1
-          ? "Se asigno 1 evaluador automaticamente."
-          : `Se asignaron ${solicitadas} evaluadores automaticamente.`,
+      message: `Se asignaron ${asignacionesEfectivas.length} evaluador(es) manualmente.`,
     };
   },
 };

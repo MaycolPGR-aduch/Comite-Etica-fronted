@@ -3,6 +3,7 @@ import axios from "axios";
 import { api } from "@/lib/api";
 import type {
   Evaluacion,
+  EvaluacionAsignarRequestDto,
   EvaluacionCreateRequestDto,
   EvaluacionResponseDto,
   EvaluacionUpdateRequestDto,
@@ -46,6 +47,17 @@ const FALLBACK_DOCUMENTS = [
   "Carta de presentacion",
   "Instrumentos de recoleccion",
 ];
+
+const priorityMap: Record<string, Expediente["prioridad"]> = {
+  alta: "Alta",
+  high: "Alta",
+  urgente: "Alta",
+  media: "Media",
+  medio: "Media",
+  normal: "Media",
+  baja: "Baja",
+  low: "Baja",
+};
 
 const normalize = (value?: string | null) => value?.trim().toLowerCase() ?? "";
 
@@ -152,11 +164,11 @@ const toDomainExpediente = (dto: ExpedienteResponseDto): Expediente => ({
   codigo: dto.codigo_unico ?? `EXP-${dto.id}`,
   titulo: dto.titulo_protocolo,
   investigadorPrincipal: `Investigador #${dto.investigador_id}`,
-  tipoTramite: "No especificado",
-  facultad: "No especificada",
+  tipoTramite: dto.tipo_tramite ?? "No especificado",
+  facultad: dto.facultad ?? "No especificada",
   fechaRegistro: dto.created_at,
   fechaLimite: undefined,
-  prioridad: "Media",
+  prioridad: priorityMap[dto.prioridad?.trim().toLowerCase()] ?? "Media",
   estado: "En evaluación",
   documentos: FALLBACK_DOCUMENTS.map((nombre, index) => ({
     id: `doc-eval-${dto.id}-${index + 1}`,
@@ -217,6 +229,36 @@ export const evaluacionService = {
     try {
       const response = await api.post<EvaluacionResponseDto>("/evaluacion/", payload);
       return toBandejaItem(response.data);
+    } catch (error) {
+      throw new Error(resolveErrorMessage(error));
+    }
+  },
+
+  async asignarEvaluadorManual(
+    expedienteId: string,
+    evaluadorId: string,
+  ): Promise<MessageResponseDto> {
+    const parsedExpedienteId = Number(expedienteId);
+    if (!Number.isFinite(parsedExpedienteId)) {
+      throw new Error("El identificador del expediente no es valido.");
+    }
+
+    const parsedEvaluadorId = Number(evaluadorId);
+    if (!Number.isFinite(parsedEvaluadorId)) {
+      throw new Error("El identificador del evaluador no es valido.");
+    }
+
+    const payload: EvaluacionAsignarRequestDto = { evaluador_id: parsedEvaluadorId };
+
+    try {
+      const response = await api.post<MessageResponseDto>(
+        `/evaluacion/expediente/${parsedExpedienteId}/asignar`,
+        payload,
+      );
+
+      return {
+        message: response.data?.message || "Evaluador asignado correctamente.",
+      };
     } catch (error) {
       throw new Error(resolveErrorMessage(error));
     }
