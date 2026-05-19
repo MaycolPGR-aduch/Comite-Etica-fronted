@@ -47,7 +47,7 @@ export default function LoginPage() {
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      correo: "investigador@demo.edu",
+      correo: "",
       role: "investigador",
       password: "",
     },
@@ -79,7 +79,7 @@ export default function LoginPage() {
             </p>
             <CardTitle className="text-3xl font-bold text-[#08204A]">Acceso al sistema</CardTitle>
             <p className="text-sm font-medium text-slate-600">
-              Inicio de sesion conectado al backend del Comité de Ética.
+              Inicio de sesion del Comité de Ética.
             </p>
           </CardHeader>
 

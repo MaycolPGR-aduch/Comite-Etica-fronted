@@ -52,5 +52,13 @@ export interface DocumentoResponseDto {
   es_obligatorio: boolean;
   validado: boolean;
   version: number;
+  ruta_archivo?: string | null;
   created_at: string;
+}
+
+export interface ExpedienteSubsanacionResponseDto {
+  mensaje: string;
+  expediente_id: number;
+  estado: string;
+  fecha_subsanacion: string;
 }

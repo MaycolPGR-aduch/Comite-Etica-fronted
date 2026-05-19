@@ -8,6 +8,7 @@ import type {
   ExpedienteCreateRequestDto,
   ExpedienteEnviarResponseDto,
   ExpedienteResponseDto,
+  ExpedienteSubsanacionResponseDto,
   ExpedienteStatus,
   ExpedienteUpdateRequestDto,
   HistorialEstadoDto,
@@ -40,12 +41,36 @@ export interface RegistrarDocumentoPayload {
   esObligatorio?: boolean;
 }
 
+export interface ReenviarSubsanacionPayload {
+  observaciones: string;
+}
+
 const FALLBACK_DOCUMENTS = [
   "Protocolo de investigacion",
   "Consentimiento informado",
   "Carta de presentacion",
   "Instrumentos de recoleccion",
 ];
+
+export const DOCUMENT_UPLOAD_ACCEPTED_MIME_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "text/plain",
+] as const;
+
+export const DOCUMENT_UPLOAD_ACCEPTED_EXTENSIONS = [
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".xls",
+  ".xlsx",
+  ".txt",
+] as const;
+
+export const DOCUMENT_UPLOAD_MAX_SIZE_BYTES = 10 * 1024 * 1024;
 
 const statusMap: Record<string, ExpedienteStatus> = {
   borrador: "Borrador",
@@ -87,7 +112,63 @@ const resolvePriority = (value?: string | null): Priority => {
   return priorityMap[value.trim().toLowerCase()] ?? "Media";
 };
 
-const toDomainExpediente = (dto: ExpedienteResponseDto): Expediente => {
+const API_BASE_URL = api.defaults.baseURL ?? "https://comite-backend.onrender.com/api/v1";
+const API_ORIGIN = (() => {
+  try {
+    return new URL(API_BASE_URL).origin;
+  } catch {
+    return "https://comite-backend.onrender.com";
+  }
+})();
+
+const resolveDocumentoUrl = (rutaArchivo?: string | null) => {
+  if (!rutaArchivo) return undefined;
+  const value = rutaArchivo.trim();
+  if (!value) return undefined;
+
+  if (/^https?:\/\//i.test(value)) {
+    return value;
+  }
+
+  try {
+    if (value.startsWith("/")) {
+      return new URL(value, API_ORIGIN).toString();
+    }
+    return new URL(value, API_BASE_URL).toString();
+  } catch {
+    return undefined;
+  }
+};
+
+const toDomainDocumento = (dto: DocumentoResponseDto) => ({
+  id: String(dto.id),
+  nombre: dto.nombre_archivo,
+  tipo: dto.tipo_documento,
+  requerido: dto.es_obligatorio,
+  cargado: true,
+  version: dto.version,
+  updatedAt: dto.created_at,
+  url: resolveDocumentoUrl(dto.ruta_archivo),
+});
+
+const resolveDocumentos = (documentos?: DocumentoResponseDto[]) => {
+  if (!documentos || documentos.length === 0) {
+    return FALLBACK_DOCUMENTS.map((nombre, index) => ({
+      id: `doc-fallback-${index + 1}`,
+      nombre,
+      tipo: "Requerido",
+      requerido: true,
+      cargado: false,
+    }));
+  }
+
+  return documentos.map(toDomainDocumento);
+};
+
+const toDomainExpediente = (
+  dto: ExpedienteResponseDto,
+  documentos?: DocumentoResponseDto[],
+): Expediente => {
   const sessionUser = getAuthUser();
 
   return {
@@ -101,13 +182,7 @@ const toDomainExpediente = (dto: ExpedienteResponseDto): Expediente => {
     fechaLimite: undefined,
     prioridad: resolvePriority(dto.prioridad),
     estado: resolveStatus(dto.estado),
-    documentos: FALLBACK_DOCUMENTS.map((nombre, index) => ({
-      id: `doc-fallback-${dto.id}-${index + 1}`,
-      nombre,
-      tipo: "Requerido",
-      requerido: true,
-      cargado: false,
-    })),
+    documentos: resolveDocumentos(documentos),
     observacionesPendientes: 0,
     evaluadoresAsignados: [],
   };
@@ -175,7 +250,7 @@ export const expedientesService = {
       params: { skip: 0, limit: 100 },
     });
 
-    const mapped = response.data.map(toDomainExpediente);
+    const mapped = response.data.map((item) => toDomainExpediente(item));
     const enriched = await enrichWithDerivedStatus(mapped);
     return status ? enriched.filter((item) => item.estado === status) : enriched;
   },
@@ -186,14 +261,21 @@ export const expedientesService = {
       throw new Error("El identificador del expediente no es válido.");
     }
 
-    const [expedienteResponse, bitacoraResponse, historialResponse, dictamenes] = await Promise.all([
+    const [expedienteResponse, bitacoraResponse, historialResponse, dictamenes, documentosResponse] =
+      await Promise.all([
       api.get<ExpedienteResponseDto>(`/expedientes/${expedienteId}`),
       api.get<BitacoraEventoDto[]>(`/expedientes/${expedienteId}/bitacora`),
       api.get<HistorialEstadoDto[]>(`/expedientes/${expedienteId}/historial`),
       dictamenService.listByExpediente(String(expedienteId)).catch(() => []),
-    ]);
+      api
+        .get<DocumentoResponseDto[]>(`/expedientes/${expedienteId}/documentos`)
+        .then((response) => response.data)
+        .catch(() => null),
+      ]);
 
-    const enriched = await enrichWithDerivedStatus([toDomainExpediente(expedienteResponse.data)]);
+    const enriched = await enrichWithDerivedStatus([
+      toDomainExpediente(expedienteResponse.data, documentosResponse ?? undefined),
+    ]);
     const expediente = enriched[0];
 
     const timeline = sortByDateDesc([
@@ -272,6 +354,32 @@ export const expedientesService = {
     return response.data;
   },
 
+  validateDocumento(file: File): string | null {
+    const lowerName = file.name.toLowerCase();
+    const hasAllowedExtension = DOCUMENT_UPLOAD_ACCEPTED_EXTENSIONS.some((extension) =>
+      lowerName.endsWith(extension),
+    );
+
+    if (!hasAllowedExtension) {
+      return `Formato no permitido. Use: ${DOCUMENT_UPLOAD_ACCEPTED_EXTENSIONS.join(", ")}.`;
+    }
+
+    if (
+      file.type &&
+      !DOCUMENT_UPLOAD_ACCEPTED_MIME_TYPES.includes(
+        file.type as (typeof DOCUMENT_UPLOAD_ACCEPTED_MIME_TYPES)[number],
+      )
+    ) {
+      return "Tipo MIME no permitido para este endpoint.";
+    }
+
+    if (file.size > DOCUMENT_UPLOAD_MAX_SIZE_BYTES) {
+      return "El archivo supera el tamaño máximo de 10 MB.";
+    }
+
+    return null;
+  },
+
   async enviarExpediente(expedienteId: string): Promise<ExpedienteEnviarResponseDto> {
     const id = Number(expedienteId);
     if (!Number.isFinite(id)) {
@@ -284,13 +392,31 @@ export const expedientesService = {
 
   async reenviarSubsanacion(
     expedienteId: string,
-    respuestas: Array<{ observacionId: string; respuesta: string }>,
-  ): Promise<{ message: string }> {
-    if (respuestas.length === 0) {
-      throw new Error("Debe responder al menos una observacion.");
+    payload: ReenviarSubsanacionPayload,
+  ): Promise<{ message: string; estado: string; fechaSubsanacion: string }> {
+    const id = Number(expedienteId);
+    if (!Number.isFinite(id)) {
+      throw new Error("El identificador del expediente no es válido.");
     }
 
-    const response = await this.enviarExpediente(expedienteId);
-    return { message: response.message };
+    const observaciones = payload.observaciones.trim();
+    if (!observaciones) {
+      throw new Error("Debe ingresar observaciones para enviar la subsanación.");
+    }
+
+    const body = new URLSearchParams({ observaciones });
+    const response = await api.post<ExpedienteSubsanacionResponseDto>(
+      `/expedientes/${id}/subsanacion`,
+      body,
+      {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      },
+    );
+
+    return {
+      message: response.data.mensaje,
+      estado: response.data.estado,
+      fechaSubsanacion: response.data.fecha_subsanacion,
+    };
   },
 };

@@ -1,8 +1,7 @@
-## Observaciones para backend (actualizado 2026-05-13)
+## Observaciones para backend (actualizado 2026-05-19)
 
 1. Lectura de documentos por expediente
-- Pendiente clave: no existe `GET /expedientes/{expediente_id}/documentos`.
-- Impacto frontend: no se puede validar en detalle qué archivos reales están cargados por expediente (solo checklist de UI).
+- Resuelto: ya existe `GET /expedientes/{expediente_id}/documentos` y frontend quedó alineado.
 
 2. OpenAPI de IA sin contrato de respuesta tipado
 - Todos los endpoints `GET /ia/*` exponen response schema `{}` en 200.
@@ -17,5 +16,5 @@
 - Recomendación: estandarizar respuesta por formato o documentar explícitamente ambos comportamientos.
 
 5. Subsanación
-- Falta endpoint formal para registrar respuestas estructuradas por observación.
-- Actualmente se usa flujo de reenvío general como workaround en frontend.
+- Resuelto parcialmente: existe `POST /expedientes/{expediente_id}/subsanacion` y frontend lo consume.
+- Observación: el payload actual es un único campo `observaciones` (texto consolidado), no estructura por observación.

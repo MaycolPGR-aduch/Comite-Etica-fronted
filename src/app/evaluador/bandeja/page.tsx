@@ -34,6 +34,11 @@ export default function BandejaEvaluadorPage() {
             { key: "id", header: "Evaluacion", cell: (row) => `#${row.id}` },
             { key: "expediente", header: "Expediente", cell: (row) => `#${row.expedienteId}` },
             {
+              key: "expedienteTitulo",
+              header: "Titulo del expediente",
+              cell: (row) => row.expedienteTitulo ?? "Sin titulo",
+            },
+            {
               key: "riesgo",
               header: "Riesgo",
               cell: (row) => row.nivelRiesgo ?? "Sin definir",

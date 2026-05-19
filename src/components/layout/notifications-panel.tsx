@@ -11,6 +11,7 @@ import {
   useNotificaciones,
   useNotificacionesSinLeer,
 } from "@/hooks";
+import { getAuthToken } from "@/services/auth-session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -19,20 +20,22 @@ import { Textarea } from "@/components/ui/textarea";
 type Filter = "all" | "unread";
 
 export function NotificationsPanel() {
+  const token = getAuthToken();
+  const hasAuthToken = Boolean(token);
   const [filter, setFilter] = useState<Filter>("all");
   const [titulo, setTitulo] = useState("");
   const [mensaje, setMensaje] = useState("");
   const [expedienteId, setExpedienteId] = useState("");
 
-  const { data: profile } = useMyProfile();
+  const { data: profile } = useMyProfile(hasAuthToken);
   const {
     data: notifications = [],
     isLoading,
     isError,
     error,
     refetch,
-  } = useNotificaciones(filter);
-  const { data: unreadCount } = useNotificacionesSinLeer();
+  } = useNotificaciones(filter, hasAuthToken);
+  const { data: unreadCount } = useNotificacionesSinLeer(hasAuthToken);
   const createMutation = useCrearNotificacion();
   const markMutation = useMarcarNotificacionLeida();
   const markAllMutation = useMarcarTodasNotificacionesLeidas();
@@ -67,7 +70,7 @@ export function NotificationsPanel() {
       <SheetTrigger asChild>
         <Button variant="outline" size="icon" className="relative" aria-label="Abrir notificaciones">
           <Bell className="h-4 w-4" />
-          {unreadCount && unreadCount.sinLeer > 0 ? (
+          {hasAuthToken && unreadCount && unreadCount.sinLeer > 0 ? (
             <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-[#0B57B7] px-1 text-[10px] font-semibold text-white">
               {unreadCount.sinLeer > 99 ? "99+" : unreadCount.sinLeer}
             </span>
@@ -128,6 +131,12 @@ export function NotificationsPanel() {
                   Reintentar
                 </Button>
               </div>
+            ) : null}
+
+            {!hasAuthToken ? (
+              <p className="text-sm text-slate-500">
+                Sesión no autenticada para notificaciones. Inicie sesión nuevamente.
+              </p>
             ) : null}
 
             {!isLoading && !isError && orderedNotifications.length === 0 ? (

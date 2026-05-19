@@ -101,9 +101,6 @@ export default function EvaluacionEticaPage() {
             <p>
               <strong>Tipo:</strong> {data.expediente.tipoTramite}
             </p>
-            <div className="rounded-md border border-dashed border-blue-300 bg-blue-50 p-3 text-sm text-slate-600">
-              Visor mock de documento: protocolo principal disponible para lectura.
-            </div>
           </CardContent>
         </Card>
 

@@ -44,7 +44,7 @@ export function AppSidebar() {
           href="/login"
           onClick={() => clearAuthSession()}
         >
-          Cambiar rol
+          Cerrar sesión
         </Link>
       </div>
     </aside>

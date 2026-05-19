@@ -1,6 +1,6 @@
 # Estado de Integración Frontend ↔ Backend
 
-Fecha de actualización: 2026-05-13  
+Fecha de actualización: 2026-05-19  
 Backend base URL: `https://comite-backend.onrender.com/api/v1`
 
 ## 1. Endpoints implementados en frontend
@@ -22,8 +22,10 @@ Backend base URL: `https://comite-backend.onrender.com/api/v1`
 | GET | `/expedientes/{id}` | Implementado | Detalle de expediente. |
 | GET | `/expedientes/{id}/bitacora` | Implementado | Timeline de bitácora. |
 | GET | `/expedientes/{id}/historial` | Implementado | Historial de estado. |
+| GET | `/expedientes/{id}/documentos` | Implementado | Lista real de documentos cargados por expediente. |
 | POST | `/expedientes/{id}/documentos` | Implementado | Carga documento (`multipart/form-data`, campo `file`). |
 | POST | `/expedientes/{id}/enviar` | Implementado | Envío formal de expediente. |
+| POST | `/expedientes/{id}/subsanacion` | Implementado | Registro de subsanación con observaciones consolidadas (string). |
 
 ### 1.3 Users (módulo administrador)
 
@@ -98,20 +100,17 @@ Backend base URL: `https://comite-backend.onrender.com/api/v1`
 
 ## 3. Observaciones técnicas y funcionales
 
-1. No existe `GET /expedientes/{id}/documentos`.
-   - Secretaría e investigador aún no pueden validar en detalle la lista real de archivos cargados desde backend.
-2. IA responde sin schema fuerte en OpenAPI (`{}` para 200 en todos los endpoints).
+1. IA responde sin schema fuerte en OpenAPI (`{}` para 200 en todos los endpoints).
    - Frontend usa normalización defensiva y mensaje funcional para permisos (`403`) o payload parcial.
-3. En pruebas reales de backend:
+2. En pruebas reales de backend:
    - IA responde datos placeholder/mensajes de integración parcial en algunos endpoints.
-4. `reportes/exportar` puede responder mensaje JSON en lugar de binario.
+3. `reportes/exportar` puede responder mensaje JSON en lugar de binario.
    - Frontend ya soporta ambos escenarios.
-5. Subsanación continúa parcialmente adaptada.
-   - Falta endpoint explícito de respuestas por observación.
+4. Subsanación ya usa endpoint real `POST /expedientes/{id}/subsanacion`.
+   - El contrato backend actual recibe un único string `observaciones` (no matriz por observación).
 
 ## 4. Recomendaciones de siguiente iteración
 
-1. Exponer `GET /expedientes/{id}/documentos` para eliminar checklist fijo y mostrar trazabilidad real de archivos.
-2. Definir schemas OpenAPI de respuesta para IA y reportes (evita normalización heurística en frontend).
-3. Definir endpoint formal de subsanación con payload estructurado por observación.
-4. Si se requiere descarga formal de dictamen PDF, exponer `archivo_url` o endpoint dedicado.
+1. Definir schemas OpenAPI de respuesta para IA y reportes (evita normalización heurística en frontend).
+2. Si el negocio requiere trazabilidad granular de subsanación, exponer payload estructurado por observación.
+3. Si se requiere descarga formal de dictamen PDF, exponer `archivo_url` estable o endpoint dedicado de descarga.

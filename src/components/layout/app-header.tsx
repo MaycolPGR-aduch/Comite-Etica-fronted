@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
 
-import { roleLabel, roleNavigation, resolveRoleFromPath } from "@/lib/navigation";
+import { roleLabel, roleNavigation, roleProfilePath, resolveRoleFromPath } from "@/lib/navigation";
 import { clearAuthSession } from "@/services/auth-session";
 import { NotificationsPanel } from "@/components/layout/notifications-panel";
 import { Button } from "@/components/ui/button";
@@ -90,11 +90,32 @@ export function AppHeader() {
         <div className="flex items-center gap-2">
           <NotificationsPanel />
           <Link
+            aria-label="Ver perfil"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-700 transition hover:bg-slate-50"
+            href={roleProfilePath[role]}
+            title="Mi perfil"
+          >
+            <svg
+              aria-hidden="true"
+              fill="none"
+              height="18"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              width="18"
+            >
+              <path d="M20 21a8 8 0 0 0-16 0" />
+              <circle cx="12" cy="8" r="4" />
+            </svg>
+          </Link>
+          <Link
             className="text-sm text-[#0B57B7] hover:underline"
             href="/login"
             onClick={() => clearAuthSession()}
           >
-            Cerrar demo
+            Cerrar sesión
           </Link>
         </div>
       </div>

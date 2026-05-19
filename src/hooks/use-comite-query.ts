@@ -83,19 +83,25 @@ export const useRegister = () =>
     mutationFn: (payload: RegisterPayload) => authService.register(payload),
   });
 
-export const useMyProfile = () =>
+export const useMyProfile = (enabled = true) =>
   useQuery({
     queryKey: queryKeys.profile,
     queryFn: () => authService.getMyProfile(),
+    enabled,
   });
 
-export const useNotificaciones = (filter: "all" | "unread" = "all") =>
+export const useNotificaciones = (
+  filter: "all" | "unread" = "all",
+  enabled = true,
+) =>
   useQuery({
     queryKey: queryKeys.notificaciones(filter),
     queryFn: async () => {
       const notifications = await notificationsService.list();
       return filter === "unread" ? notifications.filter((item) => !item.leida) : notifications;
     },
+    enabled,
+    retry: false,
   });
 
 export const useNotificacionById = (id: string) =>
@@ -105,10 +111,12 @@ export const useNotificacionById = (id: string) =>
     enabled: Boolean(id),
   });
 
-export const useNotificacionesSinLeer = () =>
+export const useNotificacionesSinLeer = (enabled = true) =>
   useQuery({
     queryKey: queryKeys.notificacionesSinLeer,
     queryFn: () => notificationsService.getUnreadCount(),
+    enabled,
+    retry: false,
   });
 
 export const useCrearNotificacion = () => {
@@ -185,8 +193,25 @@ export const useEnviarExpediente = () =>
     mutationFn: (expedienteId: string) => expedientesService.enviarExpediente(expedienteId),
   });
 
-export const useReenviarSubsanacion = () =>
-  useMutation({ mutationFn: ({ expedienteId, respuestas }: { expedienteId: string; respuestas: Array<{ observacionId: string; respuesta: string }> }) => expedientesService.reenviarSubsanacion(expedienteId, respuestas) });
+export const useReenviarSubsanacion = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      expedienteId,
+      observaciones,
+    }: {
+      expedienteId: string;
+      observaciones: string;
+    }) => expedientesService.reenviarSubsanacion(expedienteId, { observaciones }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.expediente(variables.expedienteId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.expedientes() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardInvestigador });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bandejaSecretaria });
+    },
+  });
+};
 
 export const useDashboardInvestigador = () =>
   useQuery({

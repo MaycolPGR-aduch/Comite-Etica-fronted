@@ -66,13 +66,13 @@ const resolveErrorMessage = (error: unknown): string => {
 
     if (typeof detail === "string") {
       if (error.response?.status === 401) {
-        return "No existe una cuenta válida para ese correo en el rol seleccionado, o la contraseña es incorrecta.";
+        return "Error de inicio de sesión, revise sus credenciales.";
       }
       return detail;
     }
 
     if (error.response?.status === 401) {
-      return "No existe una cuenta válida para ese correo en el rol seleccionado, o la contraseña es incorrecta.";
+      return "Error de inicio de sesión, revise sus credenciales.";
     }
   }
 
@@ -105,9 +105,7 @@ export const authService = {
 
       if (usuario.role !== payload.role) {
         clearAuthSession();
-        throw new Error(
-          `El usuario pertenece al rol "${usuario.role}" y no al rol seleccionado "${payload.role}".`,
-        );
+        throw new Error("Error de inicio de sesión, revise sus credenciales.");
       }
 
       persistAuthSession(token, usuario);

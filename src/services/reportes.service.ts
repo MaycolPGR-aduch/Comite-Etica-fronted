@@ -14,6 +14,31 @@ import type {
 const toRecord = (value: ReporteResponseDto): Record<string, unknown> =>
   value && typeof value === "object" ? value : {};
 
+const toArray = (value: unknown): ReporteResponseDto[] => {
+  if (Array.isArray(value)) {
+    return value as ReporteResponseDto[];
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const candidates = [
+      record.data,
+      record.items,
+      record.resultados,
+      record.rows,
+      record.registros,
+    ];
+
+    for (const candidate of candidates) {
+      if (Array.isArray(candidate)) {
+        return candidate as ReporteResponseDto[];
+      }
+    }
+  }
+
+  return [];
+};
+
 const toNumber = (value: unknown): number => {
   if (typeof value === "number") return value;
   if (typeof value === "string") {
@@ -82,8 +107,22 @@ const getFilenameFromContentDisposition = (value?: string, fallback = "reporte.c
 export const reportesService = {
   async getExpedientesPorEstado(): Promise<ReporteExpedientesPorEstado[]> {
     try {
-      const response = await api.get<ReporteResponseDto[]>("/reportes/expedientes-por-estado");
-      return response.data.map((item) => {
+      const response = await api.get<unknown>("/reportes/expedientes-por-estado");
+      const payload = response.data as unknown;
+
+      if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+        const estadisticas = payload as Record<string, unknown>;
+        const porEstado = estadisticas.por_estado;
+
+        if (porEstado && typeof porEstado === "object" && !Array.isArray(porEstado)) {
+          return Object.entries(porEstado as Record<string, unknown>).map(([estado, total]) => ({
+            estado,
+            total: toNumber(total),
+          }));
+        }
+      }
+
+      return toArray(payload).map((item) => {
         const row = toRecord(item);
         return {
           estado: toString(row.estado) || "desconocido",
@@ -97,8 +136,8 @@ export const reportesService = {
 
   async getTiemposAtencion(): Promise<ReporteTiempoAtencion[]> {
     try {
-      const response = await api.get<ReporteResponseDto[]>("/reportes/tiempos-atencion");
-      return response.data.map((item) => {
+      const response = await api.get<unknown>("/reportes/tiempos-atencion");
+      return toArray(response.data).map((item) => {
         const row = toRecord(item);
         return {
           expedienteId: toString(row.expediente_id),
@@ -114,12 +153,12 @@ export const reportesService = {
 
   async getCargaEvaluadores(): Promise<ReporteCargaEvaluador[]> {
     try {
-      const response = await api.get<ReporteResponseDto[]>("/reportes/carga-evaluadores");
-      return response.data.map((item) => {
+      const response = await api.get<unknown>("/reportes/carga-evaluadores");
+      return toArray(response.data).map((item) => {
         const row = toRecord(item);
         return {
           evaluadorId: toString(row.evaluador_id),
-          total: toNumber(row.total),
+          total: toNumber(row.total_evaluaciones ?? row.total),
         };
       });
     } catch (error) {
@@ -129,10 +168,11 @@ export const reportesService = {
 
   async getResultadosEmitidos(): Promise<ReporteResultadoEmitido[]> {
     try {
-      const response = await api.get<ReporteResponseDto[]>("/reportes/resultados-emitidos");
-      return response.data.map((item) => {
+      const response = await api.get<unknown>("/reportes/resultados-emitidos");
+      return toArray(response.data).map((item) => {
         const row = toRecord(item);
         const decision =
+          toString(row.tipo) ||
           toString(row.decision) ||
           toString(row.resultado) ||
           toString(row.estado) ||
@@ -152,7 +192,7 @@ export const reportesService = {
     fechaFin?: string;
   }): Promise<ReporteBusquedaExpediente[]> {
     try {
-      const response = await api.get<ReporteResponseDto[]>("/reportes/buscar-expedientes", {
+      const response = await api.get<unknown>("/reportes/buscar-expedientes", {
         params: {
           estado: filters?.estado || undefined,
           fecha_inicio: filters?.fechaInicio || undefined,
@@ -160,7 +200,7 @@ export const reportesService = {
         },
       });
 
-      return response.data.map((item) => {
+      return toArray(response.data).map((item) => {
         const row = toRecord(item);
         return {
           id: toString(row.id),

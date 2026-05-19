@@ -10,6 +10,12 @@ import {
   useEnviarExpediente,
   useRegistrarDocumentoExpediente,
 } from "@/hooks";
+import {
+  DOCUMENT_UPLOAD_ACCEPTED_EXTENSIONS,
+  DOCUMENT_UPLOAD_ACCEPTED_MIME_TYPES,
+  DOCUMENT_UPLOAD_MAX_SIZE_BYTES,
+  expedientesService,
+} from "@/services/expedientes.service";
 import type { Expediente } from "@/types";
 import { DocumentChecklist } from "@/components/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -95,6 +101,7 @@ export default function NuevoExpedientePage() {
   const [expedienteCreado, setExpedienteCreado] = useState<Expediente | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<Record<string, File | null>>({});
   const [registeredDocs, setRegisteredDocs] = useState<Record<string, boolean>>({});
+  const [fileErrors, setFileErrors] = useState<Record<string, string | null>>({});
 
   const createDraftMutation = useCrearBorrador();
   const registrarDocumentoMutation = useRegistrarDocumentoExpediente();
@@ -158,7 +165,7 @@ export default function NuevoExpedientePage() {
       }
 
       if (!expedienteCreado) {
-        setWizardError("No se encontró el expediente borrador para registrar documentos.");
+        setWizardError("No se encontró el expediente (borrador) para registrar documentos.");
         return;
       }
 
@@ -234,7 +241,7 @@ export default function NuevoExpedientePage() {
         <CardHeader>
           <CardTitle>Nuevo expediente</CardTitle>
           <p className="text-sm text-slate-500">
-            Flujo alineado con backend: crear borrador, cargar documentos y enviar.
+            Flujo: crear expediente como borrador, cargar documentos y enviar.
           </p>
         </CardHeader>
         <CardContent>
@@ -336,20 +343,44 @@ export default function NuevoExpedientePage() {
                     Seleccione un archivo por documento requerido para registrarlo en backend.
                   </AlertDescription>
                 </Alert>
+                <Alert className="border-blue-200 bg-blue-50">
+                  <AlertTitle>Formatos y restricciones admitidas</AlertTitle>
+                  <AlertDescription>
+                    Formatos permitidos: {DOCUMENT_UPLOAD_ACCEPTED_EXTENSIONS.join(", ")}.
+                    <br />
+                    Tipos MIME permitidos: {DOCUMENT_UPLOAD_ACCEPTED_MIME_TYPES.join(", ")}.
+                    <br />
+                    Tamaño máximo por archivo: {Math.floor(DOCUMENT_UPLOAD_MAX_SIZE_BYTES / (1024 * 1024))} MB.
+                  </AlertDescription>
+                </Alert>
 
                 <div className="grid gap-2">
                   {requiredDocs.map((doc) => (
                     <div key={doc.key} className="space-y-2 rounded-md border p-3">
                       <p className="text-sm font-medium">{doc.label}</p>
                       <Input
-                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        accept={DOCUMENT_UPLOAD_ACCEPTED_EXTENSIONS.join(",")}
                         type="file"
                         onChange={(event) => {
                           const file = event.target.files?.[0] ?? null;
+                          if (file) {
+                            const error = expedientesService.validateDocumento(file);
+                            if (error) {
+                              setFileErrors((current) => ({ ...current, [doc.key]: error }));
+                              setSelectedFiles((current) => ({ ...current, [doc.key]: null }));
+                              setRegisteredDocs((current) => ({ ...current, [doc.key]: false }));
+                              setWizardError(`${doc.label}: ${error}`);
+                              event.currentTarget.value = "";
+                              return;
+                            }
+                          }
+
+                          setFileErrors((current) => ({ ...current, [doc.key]: null }));
                           setSelectedFiles((current) => ({
                             ...current,
                             [doc.key]: file,
                           }));
+                          setRegisteredDocs((current) => ({ ...current, [doc.key]: false }));
                         }}
                       />
                       <p className="text-xs text-slate-500">
@@ -357,6 +388,9 @@ export default function NuevoExpedientePage() {
                           ? `Archivo: ${selectedFiles[doc.key]?.name}`
                           : "Sin archivo seleccionado"}
                       </p>
+                      {fileErrors[doc.key] ? (
+                        <p className="text-xs text-red-600">{fileErrors[doc.key]}</p>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -402,6 +436,7 @@ export default function NuevoExpedientePage() {
                 </Card>
 
                 <DocumentChecklist
+                  enableFileActions={false}
                   documents={requiredDocs.map((doc, index) => ({
                     id: `${doc.key}-${index}`,
                     nombre: doc.label,
@@ -417,7 +452,7 @@ export default function NuevoExpedientePage() {
               <Alert className="border-green-200 bg-green-50">
                 <AlertTitle>Expediente enviado</AlertTitle>
                 <AlertDescription>
-                  El expediente fue creado en borrador, se cargaron documentos y quedó enviado para revisión.
+                  El expediente fue creado, se cargaron documentos y quedó enviado para revisión.
                 </AlertDescription>
               </Alert>
             ) : null}

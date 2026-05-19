@@ -25,6 +25,7 @@ export interface EvaluacionPayload {
 export interface EvaluacionBandejaItem {
   id: string;
   expedienteId: string;
+  expedienteTitulo?: string;
   evaluadorId: string;
   nivelRiesgo: RiskLevel | null;
   recommendation: Recommendation | null;
@@ -196,6 +197,34 @@ const resolveErrorMessage = (error: unknown): string => {
   return "No se pudo completar la operacion de evaluacion.";
 };
 
+const enrichWithExpedienteTitulos = async (
+  items: EvaluacionBandejaItem[],
+): Promise<EvaluacionBandejaItem[]> => {
+  const expedienteIds = [...new Set(items.map((item) => Number(item.expedienteId)).filter(Number.isFinite))];
+  if (expedienteIds.length === 0) {
+    return items;
+  }
+
+  const settled = await Promise.allSettled(
+    expedienteIds.map(async (expedienteId) => {
+      const response = await api.get<ExpedienteResponseDto>(`/expedientes/${expedienteId}`);
+      return { expedienteId: String(expedienteId), titulo: response.data.titulo_protocolo };
+    }),
+  );
+
+  const tituloByExpedienteId = new Map<string, string>();
+  for (const result of settled) {
+    if (result.status === "fulfilled") {
+      tituloByExpedienteId.set(result.value.expedienteId, result.value.titulo);
+    }
+  }
+
+  return items.map((item) => ({
+    ...item,
+    expedienteTitulo: tituloByExpedienteId.get(item.expedienteId) ?? item.expedienteTitulo,
+  }));
+};
+
 export const evaluacionService = {
   async list(skip = 0, limit = 100): Promise<EvaluacionBandejaItem[]> {
     try {
@@ -212,7 +241,8 @@ export const evaluacionService = {
   async listMisEvaluaciones(): Promise<EvaluacionBandejaItem[]> {
     try {
       const response = await api.get<EvaluacionResponseDto[]>("/evaluacion/mis-evaluaciones");
-      return response.data.map(toBandejaItem);
+      const mapped = response.data.map(toBandejaItem);
+      return enrichWithExpedienteTitulos(mapped);
     } catch (error) {
       throw new Error(resolveErrorMessage(error));
     }

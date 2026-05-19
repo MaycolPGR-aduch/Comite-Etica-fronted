@@ -15,7 +15,7 @@ export default function SubsanacionPage() {
   const expedienteId = String(params.id);
   const { data, isLoading } = useExpedienteDetalle(expedienteId);
   const reenviarMutation = useReenviarSubsanacion();
-  const [respuestas, setRespuestas] = useState<Record<string, string>>({});
+  const [observacionesConsolidadas, setObservacionesConsolidadas] = useState("");
 
   if (isLoading) {
     return <p className="text-sm text-slate-500">Cargando observaciones...</p>;
@@ -31,13 +31,16 @@ export default function SubsanacionPage() {
   }
 
   const hasObservaciones = data.observaciones.length > 0;
+  const canSubmit =
+    hasObservaciones &&
+    observacionesConsolidadas.trim().length > 0 &&
+    !reenviarMutation.isPending;
 
   const onSubmit = async () => {
-    const payload = Object.entries(respuestas)
-      .filter(([, respuesta]) => respuesta.trim().length > 0)
-      .map(([observacionId, respuesta]) => ({ observacionId, respuesta }));
-
-    await reenviarMutation.mutateAsync({ expedienteId, respuestas: payload });
+    await reenviarMutation.mutateAsync({
+      expedienteId,
+      observaciones: observacionesConsolidadas,
+    });
   };
 
   return (
@@ -53,22 +56,30 @@ export default function SubsanacionPage() {
               <AlertDescription>El expediente no requiere subsanacion actualmente.</AlertDescription>
             </Alert>
           ) : (
-            data.observaciones.map((observation) => (
-              <div key={observation.id} className="space-y-2 rounded-md border border-amber-200 p-4">
-                <p className="text-sm font-medium text-[#08204A]">{observation.seccion}</p>
-                <p className="text-sm text-slate-700">{observation.comentario}</p>
+            <div className="space-y-4">
+              {data.observaciones.map((observation) => (
+                <div key={observation.id} className="space-y-2 rounded-md border border-amber-200 p-4">
+                  <p className="text-sm font-medium text-[#08204A]">{observation.seccion}</p>
+                  <p className="text-sm text-slate-700">{observation.comentario}</p>
+                </div>
+              ))}
+
+              <div className="space-y-2 rounded-md border border-blue-200 bg-blue-50 p-4">
+                <p className="text-sm font-medium text-[#08204A]">
+                  Respuesta consolidada de subsanación
+                </p>
                 <Textarea
-                  placeholder="Responder observacion..."
-                  value={respuestas[observation.id] ?? ""}
-                  onChange={(event) =>
-                    setRespuestas((current) => ({
-                      ...current,
-                      [observation.id]: event.target.value,
-                    }))
-                  }
+                  placeholder="Escriba aquí su respuesta consolidada para todas las observaciones..."
+                  rows={8}
+                  value={observacionesConsolidadas}
+                  onChange={(event) => setObservacionesConsolidadas(event.target.value)}
                 />
+                <p className="text-xs text-slate-600">
+                  El endpoint backend recibe un solo campo de texto (`observaciones`) con la
+                  respuesta consolidada.
+                </p>
               </div>
-            ))
+            </div>
           )}
 
           <div className="rounded-md border border-dashed border-blue-300 p-4 text-sm text-slate-600">
@@ -79,7 +90,7 @@ export default function SubsanacionPage() {
             </ul>
           </div>
 
-          <Button onClick={onSubmit} disabled={!hasObservaciones || reenviarMutation.isPending}>
+          <Button onClick={onSubmit} disabled={!canSubmit}>
             {reenviarMutation.isPending ? "Reenviando..." : "Reenviar expediente"}
           </Button>
 
@@ -87,7 +98,7 @@ export default function SubsanacionPage() {
             <Alert className="border-green-200 bg-green-50">
               <AlertTitle>Subsanacion enviada</AlertTitle>
               <AlertDescription>
-                Se registró el reenvío para nueva revisión del expediente.
+                {reenviarMutation.data.message}
               </AlertDescription>
             </Alert>
           ) : null}
