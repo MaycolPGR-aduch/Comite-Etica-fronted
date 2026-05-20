@@ -22,6 +22,7 @@ export interface EvaluacionResponseDto {
   observaciones: string | null;
   completa: boolean;
   conflicto_interes: boolean;
+  titulo_protocolo?: string | null;
   created_at: string;
 }
 

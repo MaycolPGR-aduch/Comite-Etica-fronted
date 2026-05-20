@@ -45,6 +45,12 @@ export interface ReenviarSubsanacionPayload {
   observaciones: string;
 }
 
+export interface DescargarDocumentoResponse {
+  blob: Blob;
+  fileName: string;
+  mimeType: string;
+}
+
 const FALLBACK_DOCUMENTS = [
   "Protocolo de investigacion",
   "Consentimiento informado",
@@ -138,6 +144,65 @@ const resolveDocumentoUrl = (rutaArchivo?: string | null) => {
   } catch {
     return undefined;
   }
+};
+
+const resolveFileExtensionByMimeType = (mimeType?: string | null) => {
+  const normalized = mimeType?.toLowerCase() ?? "";
+
+  if (normalized.includes("pdf")) return ".pdf";
+  if (normalized.includes("msword")) return ".doc";
+  if (normalized.includes("wordprocessingml.document")) return ".docx";
+  if (normalized.includes("vnd.ms-excel")) return ".xls";
+  if (normalized.includes("spreadsheetml.sheet")) return ".xlsx";
+  if (normalized.includes("text/plain")) return ".txt";
+
+  return "";
+};
+
+const resolveMimeTypeByFilename = (fileName?: string | null) => {
+  const normalized = fileName?.toLowerCase() ?? "";
+  if (normalized.endsWith(".pdf")) return "application/pdf";
+  if (normalized.endsWith(".doc")) return "application/msword";
+  if (normalized.endsWith(".docx")) {
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  }
+  if (normalized.endsWith(".xls")) return "application/vnd.ms-excel";
+  if (normalized.endsWith(".xlsx")) {
+    return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  }
+  if (normalized.endsWith(".txt")) return "text/plain";
+  return null;
+};
+
+const parseFilenameFromContentDisposition = (contentDisposition?: string) => {
+  if (!contentDisposition) return null;
+
+  const filenameStarMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (filenameStarMatch?.[1]) {
+    try {
+      return decodeURIComponent(filenameStarMatch[1]);
+    } catch {
+      return filenameStarMatch[1];
+    }
+  }
+
+  const filenameMatch = contentDisposition.match(/filename=\"?([^\";]+)\"?/i);
+  return filenameMatch?.[1] ?? null;
+};
+
+const toHeaderString = (value: unknown): string | undefined => {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.join(", ");
+  return undefined;
+};
+
+const resolveFileNameFromPreferred = (
+  preferredFileName: string | undefined,
+  fallbackFileName: string,
+) => {
+  const clean = preferredFileName?.trim();
+  if (!clean) return fallbackFileName;
+  return clean;
 };
 
 const toDomainDocumento = (dto: DocumentoResponseDto) => ({
@@ -417,6 +482,54 @@ export const expedientesService = {
       message: response.data.mensaje,
       estado: response.data.estado,
       fechaSubsanacion: response.data.fecha_subsanacion,
+    };
+  },
+
+  async descargarDocumento(
+    expedienteId: string,
+    documentoId: string,
+    preferredFileName?: string,
+  ): Promise<DescargarDocumentoResponse> {
+    const parsedExpedienteId = Number(expedienteId);
+    if (!Number.isFinite(parsedExpedienteId)) {
+      throw new Error("El identificador del expediente no es válido.");
+    }
+
+    const parsedDocumentoId = Number(documentoId);
+    if (!Number.isFinite(parsedDocumentoId)) {
+      throw new Error("El identificador del documento no es válido.");
+    }
+
+    const response = await api.get<Blob>(
+      `/expedientes/${parsedExpedienteId}/documentos/${parsedDocumentoId}/descargar`,
+      { responseType: "blob" },
+    );
+
+    const rawMimeType = toHeaderString(response.headers["content-type"]) ?? "application/octet-stream";
+    const fileNameFromHeader = parseFilenameFromContentDisposition(
+      toHeaderString(response.headers["content-disposition"]),
+    );
+    const inferredMimeType = resolveMimeTypeByFilename(fileNameFromHeader ?? preferredFileName);
+    const mimeType =
+      rawMimeType && rawMimeType !== "application/octet-stream"
+        ? rawMimeType
+        : inferredMimeType ?? rawMimeType;
+    const extension = resolveFileExtensionByMimeType(mimeType);
+    const fallbackName = `documento-${parsedDocumentoId}${extension || ".bin"}`;
+    const fileName = resolveFileNameFromPreferred(
+      fileNameFromHeader ?? preferredFileName,
+      fallbackName,
+    );
+
+    const normalizedBlob =
+      response.data instanceof Blob
+        ? new Blob([response.data], { type: mimeType })
+        : new Blob([response.data], { type: mimeType });
+
+    return {
+      blob: normalizedBlob,
+      fileName,
+      mimeType,
     };
   },
 };

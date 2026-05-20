@@ -46,7 +46,7 @@ export default function RevisionAdministrativaPage() {
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <DocumentChecklist documents={data.expediente.documentos} />
+        <DocumentChecklist expedienteId={data.expediente.id} documents={data.expediente.documentos} />
 
         <Card>
           <CardHeader>

@@ -63,7 +63,7 @@ export default function DetalleExpedientePage() {
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <DocumentChecklist documents={expediente.documentos} />
+        <DocumentChecklist expedienteId={expediente.id} documents={expediente.documentos} />
 
         <Card>
           <CardHeader>

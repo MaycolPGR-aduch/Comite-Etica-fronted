@@ -188,6 +188,19 @@ export const useRegistrarDocumentoExpediente = () =>
       }),
   });
 
+export const useDescargarDocumentoExpediente = () =>
+  useMutation({
+    mutationFn: ({
+      expedienteId,
+      documentoId,
+      preferredFileName,
+    }: {
+      expedienteId: string;
+      documentoId: string;
+      preferredFileName?: string;
+    }) => expedientesService.descargarDocumento(expedienteId, documentoId, preferredFileName),
+  });
+
 export const useEnviarExpediente = () =>
   useMutation({
     mutationFn: (expedienteId: string) => expedientesService.enviarExpediente(expedienteId),
