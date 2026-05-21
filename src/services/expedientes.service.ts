@@ -45,6 +45,8 @@ export interface ReenviarSubsanacionPayload {
   observaciones: string;
 }
 
+export type DocumentoActionMode = "preview" | "download";
+
 export interface DescargarDocumentoResponse {
   blob: Blob;
   fileName: string;
@@ -489,6 +491,7 @@ export const expedientesService = {
     expedienteId: string,
     documentoId: string,
     preferredFileName?: string,
+    mode: DocumentoActionMode = "download",
   ): Promise<DescargarDocumentoResponse> {
     const parsedExpedienteId = Number(expedienteId);
     if (!Number.isFinite(parsedExpedienteId)) {
@@ -500,8 +503,9 @@ export const expedientesService = {
       throw new Error("El identificador del documento no es válido.");
     }
 
+    const endpoint = mode === "preview" ? "preview" : "descargar";
     const response = await api.get<Blob>(
-      `/expedientes/${parsedExpedienteId}/documentos/${parsedDocumentoId}/descargar`,
+      `/expedientes/${parsedExpedienteId}/documentos/${parsedDocumentoId}/${endpoint}`,
       { responseType: "blob" },
     );
 

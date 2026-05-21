@@ -57,6 +57,7 @@ export function DocumentChecklist({
         expedienteId,
         documentoId: document.id,
         preferredFileName: document.nombre,
+        mode,
       });
 
       const blobUrl = URL.createObjectURL(result.blob);
@@ -120,7 +121,7 @@ export function DocumentChecklist({
                         disabled={pendingDocumentId === document.id}
                         onClick={() => handleAction("preview", document)}
                       >
-                      <ExternalLink className="h-3.5 w-3.5" />
+                        <ExternalLink className="h-3.5 w-3.5" />
                         {pendingDocumentId === document.id ? "Abriendo..." : "Previsualizar"}
                       </button>
                       <button
@@ -129,7 +130,7 @@ export function DocumentChecklist({
                         disabled={pendingDocumentId === document.id}
                         onClick={() => handleAction("download", document)}
                       >
-                      <Download className="h-3.5 w-3.5" />
+                        <Download className="h-3.5 w-3.5" />
                         {pendingDocumentId === document.id ? "Descargando..." : "Descargar"}
                       </button>
                     </div>

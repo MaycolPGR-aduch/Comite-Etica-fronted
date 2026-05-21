@@ -194,11 +194,13 @@ export const useDescargarDocumentoExpediente = () =>
       expedienteId,
       documentoId,
       preferredFileName,
+      mode,
     }: {
       expedienteId: string;
       documentoId: string;
       preferredFileName?: string;
-    }) => expedientesService.descargarDocumento(expedienteId, documentoId, preferredFileName),
+      mode?: "preview" | "download";
+    }) => expedientesService.descargarDocumento(expedienteId, documentoId, preferredFileName, mode),
   });
 
 export const useEnviarExpediente = () =>
