@@ -72,14 +72,13 @@ const recommendationMap: Record<string, Recommendation> = {
   aprobar: "Aprobar",
   aprobar_con_observaciones: "Aprobar con observaciones",
   solicitar_subsanacion: "Solicitar subsanación",
-  desaprobar: "Desaprobar",
+  desaprobar: "Solicitar subsanación",
 };
 
 const recommendationToApiMap: Record<Recommendation, string> = {
   Aprobar: "aprobar",
   "Aprobar con observaciones": "aprobar_con_observaciones",
   "Solicitar subsanación": "solicitar_subsanacion",
-  Desaprobar: "desaprobar",
 };
 
 const riskToApiMap: Record<RiskLevel, string> = {

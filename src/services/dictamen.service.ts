@@ -4,24 +4,78 @@ import { api } from "@/lib/api";
 import type {
   Dictamen,
   DictamenCreateRequestDto,
-  DictamenFirmarResponseDto,
   DictamenResponseDto,
   DictamenUpdateRequestDto,
 } from "@/types";
+
+export interface DictamenArchivoResponse {
+  blob: Blob;
+  fileName: string;
+  mimeType: string;
+}
 
 const normalize = (value?: string | null) => value?.trim().toLowerCase() ?? "";
 
 const tipoToDecisionFinal = (tipo?: string | null): Dictamen["decisionFinal"] => {
   const normalized = normalize(tipo);
   if (normalized === "aprobado") return "Aprobado";
-  if (normalized === "desaprobado") return "Desaprobado";
+  if (normalized === "desaprobado") return "Observado";
   return "Observado";
 };
 
 const decisionFinalToTipo = (decisionFinal: Dictamen["decisionFinal"]): string => {
   if (decisionFinal === "Aprobado") return "aprobado";
-  if (decisionFinal === "Desaprobado") return "desaprobado";
   return "observado";
+};
+
+const API_BASE_URL = api.defaults.baseURL ?? "https://comite-backend.onrender.com/api/v1";
+const API_ORIGIN = (() => {
+  try {
+    return new URL(API_BASE_URL).origin;
+  } catch {
+    return "https://comite-backend.onrender.com";
+  }
+})();
+
+const resolveArchivoUrl = (archivoUrl?: string | null) => {
+  if (!archivoUrl) return undefined;
+  const value = archivoUrl.trim();
+  if (!value) return undefined;
+
+  if (/^https?:\/\//i.test(value)) {
+    return value;
+  }
+
+  try {
+    if (value.startsWith("/")) {
+      return new URL(value, API_ORIGIN).toString();
+    }
+    return new URL(value, API_BASE_URL).toString();
+  } catch {
+    return undefined;
+  }
+};
+
+const parseFilenameFromContentDisposition = (contentDisposition?: string) => {
+  if (!contentDisposition) return null;
+
+  const filenameStarMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (filenameStarMatch?.[1]) {
+    try {
+      return decodeURIComponent(filenameStarMatch[1]);
+    } catch {
+      return filenameStarMatch[1];
+    }
+  }
+
+  const filenameMatch = contentDisposition.match(/filename=\"?([^\";]+)\"?/i);
+  return filenameMatch?.[1] ?? null;
+};
+
+const toHeaderString = (value: unknown): string | undefined => {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.join(", ");
+  return undefined;
 };
 
 export const toDomainDictamen = (dto: DictamenResponseDto): Dictamen => ({
@@ -32,8 +86,11 @@ export const toDomainDictamen = (dto: DictamenResponseDto): Dictamen => ({
   decisionFinal: tipoToDecisionFinal(dto.tipo_dictamen),
   resumen: dto.contenido,
   firmado: dto.firmado,
-  fecha: dto.created_at,
-  url: undefined,
+  fecha: dto.fecha_emision ?? dto.created_at,
+  fechaEmision: dto.fecha_emision ?? undefined,
+  fechaFirma: dto.fecha_firma ?? undefined,
+  archivoUrl: resolveArchivoUrl(dto.archivo_url),
+  url: resolveArchivoUrl(dto.archivo_url),
 });
 
 const resolveErrorMessage = (error: unknown): string => {
@@ -141,11 +198,38 @@ export const dictamenService = {
     }
 
     try {
-      const response = await api.post<DictamenFirmarResponseDto>(`/dictamen/${id}/firmar`);
+      const response = await api.post<DictamenResponseDto>(`/dictamen/${id}/firmar`);
       return {
-        message: response.data.message ?? "Dictamen firmado exitosamente.",
-        numero: response.data.numero,
+        message: "Dictamen firmado exitosamente.",
+        numero: response.data.numero_dictamen ?? undefined,
       };
+    } catch (error) {
+      throw new Error(resolveErrorMessage(error));
+    }
+  },
+
+  async descargarArchivoDictamen(
+    archivoUrl: string,
+    preferredFileName?: string,
+  ): Promise<DictamenArchivoResponse> {
+    const resolvedUrl = resolveArchivoUrl(archivoUrl);
+    if (!resolvedUrl) {
+      throw new Error("La URL del archivo de dictamen no es válida.");
+    }
+
+    try {
+      const response = await api.get<Blob>(resolvedUrl, { responseType: "blob" });
+      const mimeType = toHeaderString(response.headers["content-type"]) ?? "application/octet-stream";
+      const fileNameFromHeader = parseFilenameFromContentDisposition(
+        toHeaderString(response.headers["content-disposition"]),
+      );
+      const fileName = fileNameFromHeader ?? preferredFileName ?? "dictamen-firmado.pdf";
+      const blob =
+        response.data instanceof Blob
+          ? new Blob([response.data], { type: mimeType })
+          : new Blob([response.data], { type: mimeType });
+
+      return { blob, fileName, mimeType };
     } catch (error) {
       throw new Error(resolveErrorMessage(error));
     }

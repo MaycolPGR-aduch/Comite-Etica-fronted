@@ -2,16 +2,30 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useState } from "react";
 
-import { useExpedienteDetalle, useIAResumen } from "@/hooks";
+import {
+  useDescargarArchivoDictamen,
+  useExpedienteDetalle,
+  useIAResumen,
+  useRegistrarDocumentoExpediente,
+} from "@/hooks";
+import { getRequiredDocumentsByTipoTramite } from "@/lib/document-requirements";
+import { DOCUMENT_UPLOAD_ACCEPTED_EXTENSIONS, expedientesService } from "@/services/expedientes.service";
 import { DocumentChecklist, EmptyState, StatusBadge, Timeline } from "@/components/shared";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { Documento } from "@/types";
 
 export default function DetalleExpedientePage() {
   const params = useParams<{ id: string }>();
   const expedienteId = String(params.id);
-  const { data, isLoading, error } = useExpedienteDetalle(expedienteId);
+  const { data, isLoading, error, refetch } = useExpedienteDetalle(expedienteId);
   const iaResumenQuery = useIAResumen(expedienteId);
+  const descargarDictamenMutation = useDescargarArchivoDictamen();
+  const registrarDocumentoMutation = useRegistrarDocumentoExpediente();
+  const [dictamenError, setDictamenError] = useState<string | null>(null);
 
   if (isLoading) {
     return <p className="text-sm text-slate-500">Cargando detalle...</p>;
@@ -27,6 +41,100 @@ export default function DetalleExpedientePage() {
   }
 
   const { expediente, timeline, observaciones, dictamen } = data;
+  const allowResumeUpload = expediente.estado === "Borrador";
+  const documentsForChecklist = (() => {
+    if (!allowResumeUpload) {
+      return expediente.documentos;
+    }
+
+    const requiredDocs = getRequiredDocumentsByTipoTramite(expediente.tipoTramite);
+    const uploadedByTipo = new Map(
+      expediente.documentos
+        .filter((doc) => doc.cargado)
+        .map((doc) => [doc.tipo.trim().toLowerCase(), doc] as const),
+    );
+
+    const mappedRequired = requiredDocs.map((requiredDoc) => {
+      const uploaded = uploadedByTipo.get(requiredDoc.tipoDocumento);
+      if (uploaded) {
+        return {
+          ...uploaded,
+          requerido: true,
+        };
+      }
+
+      return {
+        id: `pending-${requiredDoc.key}`,
+        nombre: requiredDoc.label,
+        tipo: requiredDoc.tipoDocumento,
+        requerido: true,
+        cargado: false,
+      };
+    });
+
+    const requiredTipos = new Set(
+      requiredDocs.map((requiredDoc) => requiredDoc.tipoDocumento.toLowerCase()),
+    );
+    const extraUploaded = expediente.documentos.filter(
+      (doc) => doc.cargado && !requiredTipos.has(doc.tipo.trim().toLowerCase()),
+    );
+
+    return [...mappedRequired, ...extraUploaded];
+  })();
+
+  const resolveTipoDocumento = (document: Documento) => {
+    const normalizedName = document.nombre.trim().toLowerCase();
+    if (normalizedName.includes("protocolo")) return "protocolo";
+    if (normalizedName.includes("consentimiento")) return "consentimiento";
+    if (normalizedName.includes("carta")) return "carta";
+    if (normalizedName.includes("instrument")) return "instrumentos";
+    if (normalizedName.includes("boleta")) return "boleta_pago";
+
+    const normalizedType = document.tipo.trim().toLowerCase();
+    if (normalizedType && normalizedType !== "requerido" && normalizedType !== "archivo") {
+      return normalizedType;
+    }
+
+    return "documento";
+  };
+
+  const handleResumeUpload = async (document: Documento, file: File) => {
+    await registrarDocumentoMutation.mutateAsync({
+      expedienteId: expediente.id,
+      file,
+      tipoDocumento: resolveTipoDocumento(document),
+      esObligatorio: document.requerido,
+    });
+    await refetch();
+  };
+
+  const descargarDictamen = async () => {
+    if (!dictamen?.archivoUrl) return;
+
+    setDictamenError(null);
+    try {
+      const result = await descargarDictamenMutation.mutateAsync({
+        archivoUrl: dictamen.archivoUrl,
+        preferredFileName: `${dictamen.numero ?? `dictamen-${expediente.codigo}`}.pdf`,
+      });
+
+      const blobUrl = URL.createObjectURL(result.blob);
+      const anchor = document.createElement("a");
+      anchor.href = blobUrl;
+      anchor.download = result.fileName;
+      anchor.rel = "noreferrer noopener";
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+    } catch (downloadError) {
+      setDictamenError(
+        downloadError instanceof Error
+          ? downloadError.message
+          : "No se pudo descargar el archivo del dictamen.",
+      );
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -63,56 +171,106 @@ export default function DetalleExpedientePage() {
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <DocumentChecklist expedienteId={expediente.id} documents={expediente.documentos} />
+        <div className="space-y-3">
+          {allowResumeUpload ? (
+            <Alert className="border-amber-200 bg-amber-50">
+              <AlertTitle>Expediente en borrador</AlertTitle>
+              <AlertDescription>
+                Puede retomar la carga de documentos pendientes y, cuando estén completos, continuar con el envío.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          <DocumentChecklist
+            expedienteId={expediente.id}
+            documents={documentsForChecklist}
+            enablePendingUpload={allowResumeUpload}
+            acceptedUploadExtensions={DOCUMENT_UPLOAD_ACCEPTED_EXTENSIONS}
+            validateUploadFile={expedientesService.validateDocumento}
+            onUploadPendingDocument={handleResumeUpload}
+          />
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Observaciones</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {observaciones.length === 0 ? (
-              <p className="text-sm text-slate-500">No hay observaciones activas.</p>
-            ) : (
-              observaciones.map((observation) => (
-                <div key={observation.id} className="rounded-md border border-amber-200 bg-amber-50 p-3">
-                  <p className="text-sm font-medium">{observation.seccion}</p>
-                  <p className="text-sm text-slate-700">{observation.comentario}</p>
-                </div>
-              ))
-            )}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Dictamen</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {dictamen ? (
+                <>
+                  <p>
+                    <strong>Número:</strong> {dictamen.numero ?? "Sin número"}
+                  </p>
+                  <p>
+                    <strong>Resultado:</strong> {dictamen.decisionFinal}
+                  </p>
+                  <p>
+                    <strong>Estado:</strong> {dictamen.firmado ? "Firmado" : "Pendiente de firma"}
+                  </p>
+                  <p>
+                    <strong>Fecha de emisión:</strong>{" "}
+                    {new Date(dictamen.fechaEmision ?? dictamen.fecha).toLocaleDateString()}
+                  </p>
+                  {dictamen.fechaFirma ? (
+                    <p>
+                      <strong>Fecha de firma:</strong>{" "}
+                      {new Date(dictamen.fechaFirma).toLocaleDateString()}
+                    </p>
+                  ) : null}
+                  <div className="space-y-1">
+                    <p className="font-semibold">Resumen final</p>
+                    <p className="whitespace-pre-line text-slate-700">
+                      {dictamen.resumen || "Sin resumen disponible."}
+                    </p>
+                  </div>
+                  {dictamen.archivoUrl ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                      onClick={descargarDictamen}
+                      disabled={descargarDictamenMutation.isPending}
+                    >
+                      {descargarDictamenMutation.isPending
+                        ? "Descargando dictamen..."
+                        : "Descargar dictamen firmado"}
+                    </Button>
+                  ) : (
+                    <p className="text-slate-500">El archivo firmado aún no está disponible.</p>
+                  )}
+                  {dictamenError ? <p className="text-red-600">{dictamenError}</p> : null}
+                </>
+              ) : (
+                <p className="text-slate-500">Dictamen aún no disponible.</p>
+              )}
+            </CardContent>
+          </Card>
 
-            <Link
-              className="inline-block text-sm text-[#0B57B7] hover:underline"
-              href={`/investigador/expedientes/${expediente.id}/subsanacion`}
-            >
-              Ir a subsanacion
-            </Link>
+          <Card>
+            <CardHeader>
+              <CardTitle>Observaciones</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {observaciones.length === 0 ? (
+                <p className="text-sm text-slate-500">No hay observaciones activas.</p>
+              ) : (
+                observaciones.map((observation) => (
+                  <div key={observation.id} className="rounded-md border border-amber-200 bg-amber-50 p-3">
+                    <p className="text-sm font-medium">{observation.seccion}</p>
+                    <p className="text-sm text-slate-700">{observation.comentario}</p>
+                  </div>
+                ))
+              )}
 
-            {dictamen ? (
-              <div className="space-y-1 rounded-md border border-slate-200 p-3 text-sm">
-                <p>
-                  <strong>Dictamen:</strong> {dictamen.numero ?? "Sin número"}
-                </p>
-                <p>
-                  <strong>Resultado:</strong> {dictamen.decisionFinal}
-                </p>
-                <p>
-                  <strong>Estado:</strong> {dictamen.firmado ? "Firmado" : "Pendiente de firma"}
-                </p>
-                <p>
-                  <strong>Fecha:</strong> {new Date(dictamen.fecha).toLocaleDateString()}
-                </p>
-                {dictamen.url ? (
-                  <a className="block text-[#0B57B7] hover:underline" href={dictamen.url}>
-                    Descargar dictamen
-                  </a>
-                ) : null}
-              </div>
-            ) : (
-              <p className="text-sm text-slate-500">Dictamen aún no disponible.</p>
-            )}
-          </CardContent>
-        </Card>
+              <Link
+                className="inline-block text-sm text-[#0B57B7] hover:underline"
+                href={`/investigador/expedientes/${expediente.id}/subsanacion`}
+              >
+                Ir a subsanacion
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <Card>

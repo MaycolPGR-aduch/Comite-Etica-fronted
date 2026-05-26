@@ -15,6 +15,9 @@ export interface DictamenResponseDto {
   tipo_dictamen: string | null;
   contenido: string;
   firmado: boolean;
+  fecha_emision?: string | null;
+  fecha_firma?: string | null;
+  archivo_url?: string | null;
   created_at: string;
 }
 

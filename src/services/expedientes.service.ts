@@ -1,3 +1,5 @@
+import axios from "axios";
+
 import { api } from "@/lib/api";
 import type {
   BitacoraEventoDto,
@@ -93,11 +95,19 @@ const statusMap: Record<string, ExpedienteStatus> = {
   evaluaciones_completas: "Evaluaciones completas",
   en_deliberacion: "En deliberación",
   aprobado: "Aprobado",
-  rechazado: "Desaprobado",
+  desaprobado: "Observado",
+  rechazado: "Observado",
   archivado: "Cerrado",
 };
 
-const terminalStatuses = new Set<ExpedienteStatus>(["Aprobado", "Desaprobado", "Cerrado"]);
+const terminalStatuses = new Set<ExpedienteStatus>(["Aprobado", "Cerrado"]);
+const derivableWorkflowStatuses = new Set<ExpedienteStatus>([
+  "Admitido",
+  "Asignado",
+  "En evaluación",
+  "Evaluaciones completas",
+  "En deliberación",
+]);
 
 const priorityMap: Record<string, Priority> = {
   alta: "Alta",
@@ -207,6 +217,59 @@ const resolveFileNameFromPreferred = (
   return clean;
 };
 
+const resolveApiErrorDetail = (data: unknown): string | null => {
+  if (!data) return null;
+  if (typeof data === "string") return data;
+
+  if (typeof data === "object" && "detail" in data) {
+    const detail = (data as { detail?: unknown }).detail;
+    if (typeof detail === "string") return detail;
+  }
+
+  return null;
+};
+
+const resolveDocumentoActionLabel = (mode: DocumentoActionMode) =>
+  mode === "preview" ? "previsualizar" : "descargar";
+
+const resolveDocumentoActionErrorMessage = (
+  error: unknown,
+  mode: DocumentoActionMode,
+): string => {
+  const actionLabel = resolveDocumentoActionLabel(mode);
+
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status;
+    const detail = resolveApiErrorDetail(error.response?.data);
+
+    if (status === 401) {
+      return `Tu sesión ha expirado. Debes iniciar sesión nuevamente para ${actionLabel} este documento.`;
+    }
+
+    if (status === 403) {
+      return "No tienes permisos para acceder a este documento.";
+    }
+
+    if (status === 404) {
+      return "El documento no fue encontrado en el servidor. Si fue cargado anteriormente, es probable que el archivo ya no esté disponible y debas volver a subirlo.";
+    }
+
+    if (status === 400) {
+      return detail ?? "El documento no tiene una ruta de archivo válida para su descarga.";
+    }
+
+    if (detail) {
+      return detail;
+    }
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return `No se pudo ${actionLabel} el documento en este momento.`;
+};
+
 const toDomainDocumento = (dto: DocumentoResponseDto) => ({
   id: String(dto.id),
   nombre: dto.nombre_archivo,
@@ -278,21 +341,66 @@ const sortByDateDesc = (events: HistorialEvento[]) =>
     (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime(),
   );
 
-const deriveWithAsignado = (
+const deriveStatusFromDictamen = (decisionFinal: Dictamen["decisionFinal"]): ExpedienteStatus => {
+  if (decisionFinal === "Aprobado") return "Aprobado";
+  return "Observado";
+};
+
+const deriveWithWorkflowStatus = (
   expedientes: Expediente[],
   evaluaciones: EvaluacionResponseDto[],
+  dictamenes: Dictamen[],
 ): Expediente[] => {
-  const expedienteIdsConEvaluacion = new Set(
-    evaluaciones.map((item) => String(item.expediente_id)),
+  const evaluacionesByExpedienteId = evaluaciones.reduce<Record<string, EvaluacionResponseDto[]>>(
+    (acc, item) => {
+      const key = String(item.expediente_id);
+      if (!acc[key]) {
+        acc[key] = [];
+      }
+      acc[key].push(item);
+      return acc;
+    },
+    {},
   );
 
+  const latestDictamenByExpediente = dictamenes.reduce<Record<string, Dictamen>>((acc, item) => {
+    const current = acc[item.expedienteId];
+    if (!current || new Date(item.fecha).getTime() > new Date(current.fecha).getTime()) {
+      acc[item.expedienteId] = item;
+    }
+    return acc;
+  }, {});
+
   return expedientes.map((expediente) => {
+    const dictamen = latestDictamenByExpediente[expediente.id];
+    if (dictamen) {
+      return { ...expediente, estado: deriveStatusFromDictamen(dictamen.decisionFinal) };
+    }
+
     if (terminalStatuses.has(expediente.estado)) {
       return expediente;
     }
 
-    if (!expedienteIdsConEvaluacion.has(expediente.id)) {
+    if (!derivableWorkflowStatuses.has(expediente.estado)) {
       return expediente;
+    }
+
+    const evaluacionesExpediente = evaluacionesByExpedienteId[expediente.id] ?? [];
+    if (evaluacionesExpediente.length === 0) {
+      return expediente;
+    }
+
+    const enviadasSinConflicto = evaluacionesExpediente.filter(
+      (item) => item.completa && !item.conflicto_interes,
+    ).length;
+
+    if (enviadasSinConflicto >= 2) {
+      return { ...expediente, estado: "Evaluaciones completas" };
+    }
+
+    const tieneEvaluacionActiva = evaluacionesExpediente.some((item) => !item.conflicto_interes);
+    if (tieneEvaluacionActiva) {
+      return { ...expediente, estado: "En evaluación" };
     }
 
     return { ...expediente, estado: "Asignado" };
@@ -301,11 +409,14 @@ const deriveWithAsignado = (
 
 const enrichWithDerivedStatus = async (expedientes: Expediente[]): Promise<Expediente[]> => {
   try {
-    const response = await api.get<EvaluacionResponseDto[]>("/evaluacion/", {
-      params: { skip: 0, limit: 200 },
-    });
+    const [evaluacionesResponse, dictamenes] = await Promise.all([
+      api.get<EvaluacionResponseDto[]>("/evaluacion/", {
+        params: { skip: 0, limit: 500 },
+      }),
+      dictamenService.list(0, 500).catch(() => []),
+    ]);
 
-    return deriveWithAsignado(expedientes, response.data);
+    return deriveWithWorkflowStatus(expedientes, evaluacionesResponse.data, dictamenes);
   } catch {
     return expedientes;
   }
@@ -504,10 +615,16 @@ export const expedientesService = {
     }
 
     const endpoint = mode === "preview" ? "preview" : "descargar";
-    const response = await api.get<Blob>(
-      `/expedientes/${parsedExpedienteId}/documentos/${parsedDocumentoId}/${endpoint}`,
-      { responseType: "blob" },
-    );
+
+    let response;
+    try {
+      response = await api.get<Blob>(
+        `/expedientes/${parsedExpedienteId}/documentos/${parsedDocumentoId}/${endpoint}`,
+        { responseType: "blob" },
+      );
+    } catch (error) {
+      throw new Error(resolveDocumentoActionErrorMessage(error, mode));
+    }
 
     const rawMimeType = toHeaderString(response.headers["content-type"]) ?? "application/octet-stream";
     const fileNameFromHeader = parseFilenameFromContentDisposition(

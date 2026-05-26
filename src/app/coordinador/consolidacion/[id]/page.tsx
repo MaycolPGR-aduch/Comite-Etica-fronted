@@ -23,7 +23,7 @@ export default function ConsolidacionDictamenPage() {
   const actualizarMutation = useActualizarDictamen();
   const firmarMutation = useFirmarDictamen();
   const [draft, setDraft] = useState<{
-    decision: "Aprobado" | "Desaprobado" | "Observado";
+    decision: "Aprobado" | "Observado";
     resumen: string;
   } | null>(null);
 
@@ -35,13 +35,14 @@ export default function ConsolidacionDictamenPage() {
     return (
       <EmptyState
         title="Consolidacion no disponible"
-        description="No hay dos evaluaciones completas para este expediente."
+        description="No se pudo cargar la consolidación del expediente."
       />
     );
   }
 
   const decision = draft?.decision ?? data.dictamen?.decisionFinal ?? "Aprobado";
   const resumen = draft?.resumen ?? data.dictamen?.resumen ?? "";
+  const requiereDosEvaluaciones = !data.puedeGenerarDictamen;
 
   const generarDictamen = async () => {
     await generarMutation.mutateAsync({
@@ -94,16 +95,50 @@ export default function ConsolidacionDictamenPage() {
             <CardTitle>Comparativa de evaluadores</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-md border border-slate-200 p-3">
-              <p className="font-medium">Evaluador 1</p>
-              <p className="text-sm text-slate-600">Riesgo: {data.evaluacion1.riesgo}</p>
-              <p className="text-sm text-slate-600">Recomendacion: {data.evaluacion1.recomendacion}</p>
-            </div>
-            <div className="rounded-md border border-slate-200 p-3">
-              <p className="font-medium">Evaluador 2</p>
-              <p className="text-sm text-slate-600">Riesgo: {data.evaluacion2.riesgo}</p>
-              <p className="text-sm text-slate-600">Recomendacion: {data.evaluacion2.recomendacion}</p>
-            </div>
+            {data.evaluaciones.length === 0 ? (
+              <Alert className="border-amber-200 bg-amber-50">
+                <AlertTitle>Sin evaluaciones registradas</AlertTitle>
+                <AlertDescription>
+                  Aún no hay evaluaciones para este expediente.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {data.evaluaciones.map((evaluacion, index) => (
+              <div key={evaluacion.id} className="rounded-md border border-slate-200 p-3">
+                <p className="font-medium">Evaluador {index + 1}</p>
+                <p className="text-sm text-slate-600">Riesgo: {evaluacion.riesgo}</p>
+                <p className="text-sm text-slate-600">
+                  Recomendacion: {evaluacion.recomendacion}
+                </p>
+                <p className="text-sm text-slate-600">
+                  Estado:{" "}
+                  {evaluacion.conflictoInteres
+                    ? "Conflicto de interés"
+                    : evaluacion.completa
+                      ? "Enviada"
+                      : "Evaluación pendiente"}
+                </p>
+
+                <details className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-2">
+                  <summary className="cursor-pointer select-none text-sm font-medium text-[#08204A]">
+                    Ver evaluación
+                  </summary>
+                  <div className="mt-2 space-y-2 text-sm text-slate-700">
+                    {evaluacion.secciones.length === 0 ? (
+                      <p>Sin respuestas registradas en el formulario ético.</p>
+                    ) : (
+                      evaluacion.secciones.map((seccion) => (
+                        <div key={`${evaluacion.id}-${seccion.seccion}`}>
+                          <p className="font-medium">{seccion.seccion}</p>
+                          <p>{seccion.observacion || "Sin observación."}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </details>
+              </div>
+            ))}
 
             <div className="rounded-md border border-green-200 bg-green-50 p-3">
               <p className="font-medium text-green-800">Coincidencias</p>
@@ -132,8 +167,8 @@ export default function ConsolidacionDictamenPage() {
             <CardTitle>Decision final y comunicacion</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-2 md:grid-cols-3">
-              {(["Aprobado", "Observado", "Desaprobado"] as const).map((option) => (
+            <div className="grid gap-2 md:grid-cols-2">
+              {(["Aprobado", "Observado"] as const).map((option) => (
                 <button
                   key={option}
                   type="button"
@@ -161,10 +196,20 @@ export default function ConsolidacionDictamenPage() {
               }
             />
 
+            {requiereDosEvaluaciones ? (
+              <Alert className="border-amber-200 bg-amber-50">
+                <AlertTitle>Consolidación incompleta</AlertTitle>
+                <AlertDescription>
+                  {data.mensajeValidacion ??
+                    "Se requieren 2 evaluaciones enviadas para consolidar el dictamen."}
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
             {!data.dictamen ? (
               <Button
                 onClick={generarDictamen}
-                disabled={generarMutation.isPending || resumen.length < 20}
+                disabled={generarMutation.isPending || resumen.length < 20 || requiereDosEvaluaciones}
               >
                 {generarMutation.isPending ? "Generando..." : "Generar dictamen"}
               </Button>

@@ -5,25 +5,37 @@ import { CheckCircle2, CircleAlert, Download, ExternalLink } from "lucide-react"
 
 import { useDescargarDocumentoExpediente } from "@/hooks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import type { Documento } from "@/types";
 
 interface DocumentChecklistProps {
   expedienteId?: string;
   documents: Documento[];
   enableFileActions?: boolean;
+  enablePendingUpload?: boolean;
+  acceptedUploadExtensions?: readonly string[];
+  validateUploadFile?: (file: File) => string | null;
+  onUploadPendingDocument?: (document: Documento, file: File) => Promise<void>;
 }
 
 export function DocumentChecklist({
   expedienteId,
   documents,
   enableFileActions = true,
+  enablePendingUpload = false,
+  acceptedUploadExtensions,
+  validateUploadFile,
+  onUploadPendingDocument,
 }: DocumentChecklistProps) {
   const downloadMutation = useDescargarDocumentoExpediente();
   const [pendingDocumentId, setPendingDocumentId] = useState<string | null>(null);
   const [errorByDocumentId, setErrorByDocumentId] = useState<Record<string, string>>({});
+  const [selectedFilesByDocumentId, setSelectedFilesByDocumentId] = useState<Record<string, File | null>>({});
+  const [pendingUploadDocumentId, setPendingUploadDocumentId] = useState<string | null>(null);
 
   const canUseDownloadEndpoint = (documentId: string) =>
     Boolean(expedienteId && /^\d+$/.test(expedienteId) && /^\d+$/.test(documentId));
+  const canUploadPendingDocument = enablePendingUpload && Boolean(onUploadPendingDocument);
 
   const triggerDownload = (blobUrl: string, fileName: string) => {
     const anchor = document.createElement("a");
@@ -85,6 +97,66 @@ export function DocumentChecklist({
     }
   };
 
+  const handleFileChange = (document: Documento, file: File | null) => {
+    setErrorByDocumentId((current) => {
+      const next = { ...current };
+      delete next[document.id];
+      return next;
+    });
+
+    if (!file) {
+      setSelectedFilesByDocumentId((current) => ({ ...current, [document.id]: null }));
+      return;
+    }
+
+    const validationError = validateUploadFile?.(file);
+    if (validationError) {
+      setSelectedFilesByDocumentId((current) => ({ ...current, [document.id]: null }));
+      setErrorByDocumentId((current) => ({
+        ...current,
+        [document.id]: validationError,
+      }));
+      return;
+    }
+
+    setSelectedFilesByDocumentId((current) => ({ ...current, [document.id]: file }));
+  };
+
+  const handlePendingUpload = async (document: Documento) => {
+    if (!onUploadPendingDocument) return;
+
+    const selectedFile = selectedFilesByDocumentId[document.id];
+    if (!selectedFile) {
+      setErrorByDocumentId((current) => ({
+        ...current,
+        [document.id]: "Seleccione un archivo antes de cargarlo.",
+      }));
+      return;
+    }
+
+    setErrorByDocumentId((current) => {
+      const next = { ...current };
+      delete next[document.id];
+      return next;
+    });
+    setPendingUploadDocumentId(document.id);
+
+    try {
+      await onUploadPendingDocument(document, selectedFile);
+      setSelectedFilesByDocumentId((current) => ({ ...current, [document.id]: null }));
+    } catch (error) {
+      setErrorByDocumentId((current) => ({
+        ...current,
+        [document.id]:
+          error instanceof Error
+            ? error.message
+            : "No se pudo cargar el documento en este momento.",
+      }));
+    } finally {
+      setPendingUploadDocumentId(null);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -141,6 +213,33 @@ export function DocumentChecklist({
                 ) : (
                   <p className="text-xs text-slate-500">Documento sin identificador válido para descarga.</p>
                 )
+              ) : null}
+
+              {!document.cargado && canUploadPendingDocument ? (
+                <div className="flex w-full max-w-xs flex-col items-end gap-2 text-xs">
+                  <Input
+                    accept={acceptedUploadExtensions?.join(",")}
+                    type="file"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] ?? null;
+                      handleFileChange(document, file);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="inline-flex items-center rounded border border-blue-200 px-2 py-1 text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={pendingUploadDocumentId === document.id}
+                    onClick={() => handlePendingUpload(document)}
+                  >
+                    {pendingUploadDocumentId === document.id ? "Cargando..." : "Cargar documento"}
+                  </button>
+                  {selectedFilesByDocumentId[document.id] ? (
+                    <p className="text-slate-500">{selectedFilesByDocumentId[document.id]?.name}</p>
+                  ) : null}
+                  {errorByDocumentId[document.id] ? (
+                    <p className="text-red-600">{errorByDocumentId[document.id]}</p>
+                  ) : null}
+                </div>
               ) : null}
             </div>
           </div>

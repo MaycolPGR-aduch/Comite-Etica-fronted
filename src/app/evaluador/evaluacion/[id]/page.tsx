@@ -242,7 +242,6 @@ export default function EvaluacionEticaPage() {
                   "Aprobar",
                   "Aprobar con observaciones",
                   "Solicitar subsanación",
-                  "Desaprobar",
                 ] as const
               ).map((option) => (
                 <button

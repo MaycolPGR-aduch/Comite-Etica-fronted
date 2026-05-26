@@ -83,7 +83,6 @@ const statuses: ExpedienteStatus[] = [
   "En deliberación",
   "Observado",
   "Aprobado",
-  "Desaprobado",
   "Cerrado",
 ];
 

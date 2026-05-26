@@ -48,7 +48,6 @@ Definidos en `src/types/domain.ts`:
   - En deliberación
   - Observado
   - Aprobado
-  - Desaprobado
   - Cerrado
 - Entidades: `Expediente`, `Documento`, `Observacion`, `HistorialEvento`, `Evaluacion`, `Dictamen`, `Metrica`.
 

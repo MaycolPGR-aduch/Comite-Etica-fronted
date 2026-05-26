@@ -16,6 +16,7 @@ import {
   DOCUMENT_UPLOAD_MAX_SIZE_BYTES,
   expedientesService,
 } from "@/services/expedientes.service";
+import { getRequiredDocumentsByTipoTramite } from "@/lib/document-requirements";
 import type { Expediente } from "@/types";
 import { DocumentChecklist } from "@/components/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -53,48 +54,6 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-const DOCUMENTOS_POR_TIPO_TRAMITE = {
-  protocolo_estudiante: [
-    {
-      key: "protocolo",
-      label: "Protocolo de investigacion",
-      tipoDocumento: "protocolo",
-    },
-    {
-      key: "consentimiento",
-      label: "Consentimiento informado",
-      tipoDocumento: "consentimiento",
-    },
-    {
-      key: "carta",
-      label: "Carta de presentacion",
-      tipoDocumento: "carta",
-    },
-    {
-      key: "instrumentos",
-      label: "Instrumentos de recoleccion",
-      tipoDocumento: "instrumentos",
-    },
-    {
-      key: "boleta_pago",
-      label: "Boleta de pago de tramite",
-      tipoDocumento: "boleta_pago",
-    },
-  ],
-  protocolo_tesista: [
-    {
-      key: "protocolo",
-      label: "Protocolo o proyecto de investigacion",
-      tipoDocumento: "protocolo",
-    },
-    {
-      key: "boleta_pago",
-      label: "Boleta de pago de tramite",
-      tipoDocumento: "boleta_pago",
-    },
-  ],
-} as const;
-
 export default function NuevoExpedientePage() {
   const [step, setStep] = useState(1);
   const [wizardError, setWizardError] = useState<string | null>(null);
@@ -124,11 +83,7 @@ export default function NuevoExpedientePage() {
     name: "tipoTramite",
   });
   const requiredDocs = useMemo(() => {
-    if (tipoTramiteSeleccionado === "protocolo_tesista") {
-      return DOCUMENTOS_POR_TIPO_TRAMITE.protocolo_tesista;
-    }
-
-    return DOCUMENTOS_POR_TIPO_TRAMITE.protocolo_estudiante;
+    return getRequiredDocumentsByTipoTramite(tipoTramiteSeleccionado);
   }, [tipoTramiteSeleccionado]);
 
   const docsComplete = requiredDocs.every((doc) => Boolean(selectedFiles[doc.key]));

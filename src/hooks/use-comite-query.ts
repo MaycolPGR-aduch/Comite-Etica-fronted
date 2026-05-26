@@ -8,6 +8,7 @@ import {
   configuracionService,
   consolidacionService,
   dashboardService,
+  dictamenService,
   evaluacionService,
   expedientesService,
   iaService,
@@ -16,6 +17,7 @@ import {
   revisionAdministrativaService,
   usersService,
 } from "@/services";
+import type { DictamenArchivoResponse } from "@/services/dictamen.service";
 import type {
   Evaluacion,
   ExpedienteStatus,
@@ -431,7 +433,7 @@ export const useGenerarDictamen = () => {
       resumen,
     }: {
       expedienteId: string;
-      decisionFinal: "Aprobado" | "Desaprobado" | "Observado";
+      decisionFinal: "Aprobado" | "Observado";
       resumen: string;
     }) => consolidacionService.generarDictamen({ expedienteId, decisionFinal, resumen }),
     onSuccess: (_, variables) => {
@@ -488,6 +490,21 @@ export const useFirmarDictamen = () => {
     },
   });
 };
+
+export const useDescargarArchivoDictamen = () =>
+  useMutation<
+    DictamenArchivoResponse,
+    Error,
+    {
+      archivoUrl: string;
+      preferredFileName?: string;
+    }
+  >({
+    mutationFn: ({
+      archivoUrl,
+      preferredFileName,
+    }) => dictamenService.descargarArchivoDictamen(archivoUrl, preferredFileName),
+  });
 
 export const useConfiguracionCatalogos = () =>
   useQuery({

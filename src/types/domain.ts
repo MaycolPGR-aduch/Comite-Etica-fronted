@@ -18,7 +18,6 @@ export const EXPEDIENTE_STATUSES = [
   "En deliberación",
   "Observado",
   "Aprobado",
-  "Desaprobado",
   "Cerrado",
 ] as const;
 
@@ -31,8 +30,7 @@ export type RiskLevel = "Bajo" | "Medio" | "Alto";
 export type Recommendation =
   | "Aprobar"
   | "Aprobar con observaciones"
-  | "Solicitar subsanación"
-  | "Desaprobar";
+  | "Solicitar subsanación";
 
 export interface Usuario {
   id: string;
@@ -92,15 +90,23 @@ export interface Evaluacion {
   updatedAt: string;
 }
 
+export interface EvaluacionConsolidacion extends Evaluacion {
+  completa: boolean;
+  conflictoInteres: boolean;
+}
+
 export interface Dictamen {
   id?: string;
   expedienteId: string;
   numero?: string;
   tipo?: string;
-  decisionFinal: "Aprobado" | "Desaprobado" | "Observado";
+  decisionFinal: "Aprobado" | "Observado";
   resumen: string;
   firmado?: boolean;
   fecha: string;
+  fechaEmision?: string;
+  fechaFirma?: string;
+  archivoUrl?: string;
   url?: string;
 }
 
@@ -160,8 +166,11 @@ export interface ConfiguracionCatalogos {
 
 export interface ConsolidacionResultado {
   expediente: Expediente;
-  evaluacion1: Evaluacion;
-  evaluacion2: Evaluacion;
+  evaluaciones: EvaluacionConsolidacion[];
+  evaluacion1?: EvaluacionConsolidacion;
+  evaluacion2?: EvaluacionConsolidacion;
+  puedeGenerarDictamen: boolean;
+  mensajeValidacion?: string;
   coincidencias: string[];
   discrepancias: string[];
   dictamen?: Dictamen;

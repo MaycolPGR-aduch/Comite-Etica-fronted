@@ -90,7 +90,10 @@ export const dashboardService = {
         item.estado === "En revisión administrativa" ||
         item.estado === "Asignado" ||
         item.estado === "En evaluación" ||
-        item.estado === "Evaluaciones completas",
+        item.estado === "Evaluaciones completas" ||
+        item.estado === "En deliberación" ||
+        item.estado === "Observado" ||
+        item.estado === "Aprobado",
     );
 
     const metricas: Metrica[] = [
@@ -113,6 +116,20 @@ export const dashboardService = {
         id: "coord-completos",
         titulo: "Evaluaciones completas",
         valor: visibles.filter((item) => item.estado === "Evaluaciones completas").length,
+      },
+      {
+        id: "coord-deliberacion",
+        titulo: "En deliberación",
+        valor: visibles.filter((item) => item.estado === "En deliberación").length,
+      },
+      {
+        id: "coord-finalizados",
+        titulo: "Con dictamen",
+        valor: visibles.filter(
+          (item) =>
+            item.estado === "Observado" ||
+            item.estado === "Aprobado",
+        ).length,
       },
       { id: "coord-total", titulo: "Total visibles", valor: visibles.length },
     ];
