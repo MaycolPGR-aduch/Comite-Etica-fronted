@@ -95,8 +95,6 @@ const statusMap: Record<string, ExpedienteStatus> = {
   evaluaciones_completas: "Evaluaciones completas",
   en_deliberacion: "En deliberación",
   aprobado: "Aprobado",
-  desaprobado: "Observado",
-  rechazado: "Observado",
   archivado: "Cerrado",
 };
 
@@ -618,9 +616,12 @@ export const expedientesService = {
 
     let response;
     try {
-      response = await api.get<Blob>(
-        `/expedientes/${parsedExpedienteId}/documentos/${parsedDocumentoId}/${endpoint}`,
-        { responseType: "blob" },
+      response = await axios.get<Blob>(
+        `/api/v1/expedientes/${parsedExpedienteId}/documentos/${parsedDocumentoId}/${endpoint}`,
+        {
+          responseType: "blob",
+          withCredentials: true,
+        },
       );
     } catch (error) {
       throw new Error(resolveDocumentoActionErrorMessage(error, mode));

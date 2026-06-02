@@ -496,14 +496,14 @@ export const useDescargarArchivoDictamen = () =>
     DictamenArchivoResponse,
     Error,
     {
-      archivoUrl: string;
+      dictamenId: string;
       preferredFileName?: string;
     }
   >({
     mutationFn: ({
-      archivoUrl,
+      dictamenId,
       preferredFileName,
-    }) => dictamenService.descargarArchivoDictamen(archivoUrl, preferredFileName),
+    }) => dictamenService.descargarArchivoDictamen(dictamenId, preferredFileName),
   });
 
 export const useConfiguracionCatalogos = () =>

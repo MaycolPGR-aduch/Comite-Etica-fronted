@@ -19,7 +19,6 @@ const normalize = (value?: string | null) => value?.trim().toLowerCase() ?? "";
 const tipoToDecisionFinal = (tipo?: string | null): Dictamen["decisionFinal"] => {
   const normalized = normalize(tipo);
   if (normalized === "aprobado") return "Aprobado";
-  if (normalized === "desaprobado") return "Observado";
   return "Observado";
 };
 
@@ -96,6 +95,12 @@ export const toDomainDictamen = (dto: DictamenResponseDto): Dictamen => ({
 const resolveErrorMessage = (error: unknown): string => {
   if (axios.isAxiosError(error)) {
     const detail = error.response?.data?.detail;
+    const status = error.response?.status;
+    if (status === 401) return "Tu sesión ha expirado. Inicia sesión nuevamente.";
+    if (status === 403) return "No tienes permisos para descargar este dictamen.";
+    if (status === 404) {
+      return "El dictamen no existe o aún no tiene archivo disponible para descarga.";
+    }
     if (typeof detail === "string") return detail;
   }
 
@@ -209,16 +214,19 @@ export const dictamenService = {
   },
 
   async descargarArchivoDictamen(
-    archivoUrl: string,
+    dictamenId: string,
     preferredFileName?: string,
   ): Promise<DictamenArchivoResponse> {
-    const resolvedUrl = resolveArchivoUrl(archivoUrl);
-    if (!resolvedUrl) {
-      throw new Error("La URL del archivo de dictamen no es válida.");
+    const id = Number(dictamenId);
+    if (!Number.isFinite(id)) {
+      throw new Error("El identificador del dictamen no es válido.");
     }
 
     try {
-      const response = await api.get<Blob>(resolvedUrl, { responseType: "blob" });
+      const response = await axios.get<Blob>(`/api/v1/dictamen/${id}/descargar`, {
+        responseType: "blob",
+        withCredentials: true,
+      });
       const mimeType = toHeaderString(response.headers["content-type"]) ?? "application/octet-stream";
       const fileNameFromHeader = parseFilenameFromContentDisposition(
         toHeaderString(response.headers["content-disposition"]),

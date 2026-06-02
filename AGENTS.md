@@ -62,4 +62,33 @@ src/
 ├── mocks/
 ├── types/
 └── styles/
+
+
+
+
+## Mejora visual y UX
+
+Cuando se solicite mejorar la interfaz, el agente debe:
+
+1. Leer primero `DESIGN.md`.
+2. Revisar componentes compartidos antes de modificar páginas individuales.
+3. Priorizar cambios globales en:
+   - Button
+   - Card
+   - Badge
+   - Table
+   - Dialog
+   - AlertDialog
+   - Sidebar
+   - Header
+   - Form controls
+4. Evitar rediseñar cada pantalla de manera aislada.
+5. Mantener consistencia visual entre todos los roles.
+6. No romper la lógica funcional existente.
+7. No cambiar rutas, servicios ni mocks salvo que sea necesario.
+8. Implementar confirmaciones solo en acciones críticas.
+9. Usar toasts para acciones exitosas o informativas.
+10. Usar skeletons para estados de carga.
 <!-- END:nextjs-agent-rules -->
+
+

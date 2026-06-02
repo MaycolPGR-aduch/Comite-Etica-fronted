@@ -23,13 +23,15 @@ export default function DashboardCoordinadorPage() {
           <CardTitle>Seguimiento de expedientes admitidos</CardTitle>
         </CardHeader>
         <CardContent>
-          <DataTable<Expediente>
-            data={data?.expedientes ?? []}
-            loading={isLoading}
-            getRowId={(row) => row.id}
-            columns={[
-              { key: "codigo", header: "Codigo", cell: (row) => row.codigo },
-              { key: "titulo", header: "Titulo", cell: (row) => row.titulo },
+        <DataTable<Expediente>
+          data={data?.expedientes ?? []}
+          loading={isLoading}
+          getRowId={(row) => row.id}
+          searchAccessor={(row) => [row.codigo, row.titulo, row.estado]}
+          searchPlaceholder="Buscar por código, título o estado"
+          columns={[
+            { key: "codigo", header: "Codigo", cell: (row) => row.codigo },
+            { key: "titulo", header: "Titulo", cell: (row) => row.titulo },
               { key: "estado", header: "Estado", cell: (row) => <StatusBadge status={row.estado} /> },
               {
                 key: "acciones",

@@ -2,6 +2,7 @@ import axios from "axios";
 
 import { api } from "@/lib/api";
 import type {
+  DocumentoResponseDto,
   Evaluacion,
   EvaluacionAsignarRequestDto,
   EvaluacionCreateRequestDto,
@@ -12,6 +13,7 @@ import type {
   MessageResponseDto,
   Recommendation,
   RiskLevel,
+  UserResponseDto,
 } from "@/types";
 
 export interface EvaluacionPayload {
@@ -40,14 +42,12 @@ export interface EvaluacionContextoResponse {
   evaluacion: EvaluacionBandejaItem;
   evaluacionActual: Evaluacion;
   expediente: Expediente;
+  investigador?: {
+    id: string;
+    nombre: string;
+    correo: string;
+  };
 }
-
-const FALLBACK_DOCUMENTS = [
-  "Protocolo de investigacion",
-  "Consentimiento informado",
-  "Carta de presentacion",
-  "Instrumentos de recoleccion",
-];
 
 const priorityMap: Record<string, Expediente["prioridad"]> = {
   alta: "Alta",
@@ -58,6 +58,34 @@ const priorityMap: Record<string, Expediente["prioridad"]> = {
   normal: "Media",
   baja: "Baja",
   low: "Baja",
+};
+
+const API_BASE_URL = api.defaults.baseURL ?? "https://comite-backend.onrender.com/api/v1";
+const API_ORIGIN = (() => {
+  try {
+    return new URL(API_BASE_URL).origin;
+  } catch {
+    return "https://comite-backend.onrender.com";
+  }
+})();
+
+const resolveDocumentoUrl = (rutaArchivo?: string | null) => {
+  if (!rutaArchivo) return undefined;
+  const value = rutaArchivo.trim();
+  if (!value) return undefined;
+
+  if (/^https?:\/\//i.test(value)) {
+    return value;
+  }
+
+  try {
+    if (value.startsWith("/")) {
+      return new URL(value, API_ORIGIN).toString();
+    }
+    return new URL(value, API_BASE_URL).toString();
+  } catch {
+    return undefined;
+  }
 };
 
 const normalize = (value?: string | null) => value?.trim().toLowerCase() ?? "";
@@ -160,24 +188,33 @@ const toDomainEvaluacion = (dto: EvaluacionResponseDto): Evaluacion => ({
   updatedAt: dto.created_at,
 });
 
-const toDomainExpediente = (dto: ExpedienteResponseDto): Expediente => ({
+const toDomainDocumento = (dto: DocumentoResponseDto): Expediente["documentos"][number] => ({
+  id: String(dto.id),
+  nombre: dto.nombre_archivo,
+  tipo: dto.tipo_documento,
+  requerido: dto.es_obligatorio,
+  cargado: true,
+  version: dto.version,
+  updatedAt: dto.created_at,
+  url: resolveDocumentoUrl(dto.ruta_archivo),
+});
+
+const toDomainExpediente = (
+  dto: ExpedienteResponseDto,
+  documentos: DocumentoResponseDto[],
+  investigadorNombre?: string,
+): Expediente => ({
   id: String(dto.id),
   codigo: dto.codigo_unico ?? `EXP-${dto.id}`,
   titulo: dto.titulo_protocolo,
-  investigadorPrincipal: `Investigador #${dto.investigador_id}`,
+  investigadorPrincipal: investigadorNombre ?? `Investigador #${dto.investigador_id}`,
   tipoTramite: dto.tipo_tramite ?? "No especificado",
   facultad: dto.facultad ?? "No especificada",
   fechaRegistro: dto.created_at,
   fechaLimite: undefined,
   prioridad: priorityMap[dto.prioridad?.trim().toLowerCase()] ?? "Media",
   estado: "En evaluación",
-  documentos: FALLBACK_DOCUMENTS.map((nombre, index) => ({
-    id: `doc-eval-${dto.id}-${index + 1}`,
-    nombre,
-    tipo: "Requerido",
-    requerido: true,
-    cargado: false,
-  })),
+  documentos: documentos.map(toDomainDocumento),
   observacionesPendientes: 0,
   evaluadoresAsignados: [],
 });
@@ -339,15 +376,37 @@ export const evaluacionService = {
     try {
       const evaluacionResponse = await api.get<EvaluacionResponseDto>(`/evaluacion/${parsed}`);
       const evaluacionDto = evaluacionResponse.data;
+      const [expedienteResponse, documentosResponse] = await Promise.all([
+        api.get<ExpedienteResponseDto>(`/expedientes/${evaluacionDto.expediente_id}`),
+        api
+          .get<DocumentoResponseDto[]>(`/expedientes/${evaluacionDto.expediente_id}/documentos`)
+          .then((response) => response.data)
+          .catch(() => []),
+      ]);
 
-      const expedienteResponse = await api.get<ExpedienteResponseDto>(
-        `/expedientes/${evaluacionDto.expediente_id}`,
-      );
+      const investigadorResponse = await api
+        .get<UserResponseDto>(`/users/${expedienteResponse.data.investigador_id}`)
+        .then((response) => response.data)
+        .catch(() => null);
+
+      const investigador =
+        investigadorResponse && investigadorResponse.id
+          ? {
+              id: String(investigadorResponse.id),
+              nombre: `${investigadorResponse.nombre} ${investigadorResponse.apellido}`.trim(),
+              correo: investigadorResponse.email,
+            }
+          : undefined;
 
       return {
         evaluacion: toBandejaItem(evaluacionDto),
         evaluacionActual: toDomainEvaluacion(evaluacionDto),
-        expediente: toDomainExpediente(expedienteResponse.data),
+        expediente: toDomainExpediente(
+          expedienteResponse.data,
+          documentosResponse,
+          investigador?.nombre,
+        ),
+        investigador,
       };
     } catch (error) {
       throw new Error(resolveErrorMessage(error));

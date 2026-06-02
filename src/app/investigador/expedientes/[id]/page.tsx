@@ -109,12 +109,12 @@ export default function DetalleExpedientePage() {
   };
 
   const descargarDictamen = async () => {
-    if (!dictamen?.archivoUrl) return;
+    if (!dictamen?.id) return;
 
     setDictamenError(null);
     try {
       const result = await descargarDictamenMutation.mutateAsync({
-        archivoUrl: dictamen.archivoUrl,
+        dictamenId: dictamen.id,
         preferredFileName: `${dictamen.numero ?? `dictamen-${expediente.codigo}`}.pdf`,
       });
 
@@ -223,7 +223,7 @@ export default function DetalleExpedientePage() {
                       {dictamen.resumen || "Sin resumen disponible."}
                     </p>
                   </div>
-                  {dictamen.archivoUrl ? (
+                  {dictamen.firmado && dictamen.decisionFinal === "Aprobado" ? (
                     <Button
                       type="button"
                       variant="outline"

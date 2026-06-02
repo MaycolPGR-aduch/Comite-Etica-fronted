@@ -28,6 +28,14 @@ export default function BandejaEvaluadorPage() {
           data={data}
           loading={isLoading}
           getRowId={(row) => row.id}
+          searchAccessor={(row) => [
+            row.id,
+            row.expedienteId,
+            row.expedienteTitulo ?? "",
+            row.nivelRiesgo ?? "",
+            row.estado,
+          ]}
+          searchPlaceholder="Buscar por evaluación, expediente o riesgo"
           statusAccessor={(row) => row.estado}
           statusOptions={["En progreso", "Completada", "Conflicto de interes"]}
           columns={[

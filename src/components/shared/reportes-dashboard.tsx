@@ -220,6 +220,14 @@ export function ReportesDashboard({ scopeLabel }: ReportesDashboardProps) {
             data={busquedaExpedientes.data ?? []}
             loading={busquedaExpedientes.isLoading}
             getRowId={(row) => row.id}
+            searchAccessor={(row) => [
+              row.codigoUnico,
+              row.tituloProtocolo,
+              row.estado,
+              row.prioridad,
+              row.facultad,
+            ]}
+            searchPlaceholder="Buscar por código, título, estado o facultad"
             columns={[
               { key: "codigo", header: "Código", cell: (row) => row.codigoUnico || "-" },
               { key: "titulo", header: "Título", cell: (row) => row.tituloProtocolo || "-" },

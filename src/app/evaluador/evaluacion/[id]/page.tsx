@@ -2,8 +2,10 @@
 
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
+import { Download, ExternalLink } from "lucide-react";
 
 import {
+  useDescargarDocumentoExpediente,
   useIAInconsistencias,
   useIAObservacionesSugeridas,
   useIAPreanalisis,
@@ -12,7 +14,7 @@ import {
   useDeclararConflictoEvaluacion,
   useGuardarEvaluacion,
 } from "@/hooks";
-import type { Recommendation, RiskLevel } from "@/types";
+import type { Documento, Recommendation, RiskLevel } from "@/types";
 import { EmptyState } from "@/components/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -31,10 +33,13 @@ export default function EvaluacionEticaPage() {
   const inconsistenciasQuery = useIAInconsistencias(expedienteId);
   const riesgosQuery = useIARiesgos(expedienteId);
   const observacionesIAQuery = useIAObservacionesSugeridas(expedienteId);
+  const documentoMutation = useDescargarDocumentoExpediente();
+  const normalize = (value?: string) => value?.trim().toLowerCase() ?? "";
 
   const [draftRiesgo, setDraftRiesgo] = useState<RiskLevel | null>(null);
   const [draftRecomendacion, setDraftRecomendacion] = useState<Recommendation | null>(null);
   const [observaciones, setObservaciones] = useState<Record<string, string>>({});
+  const [documentoError, setDocumentoError] = useState<string | null>(null);
 
   const defaultObservaciones = useMemo(() => {
     if (!data) return {};
@@ -43,6 +48,23 @@ export default function EvaluacionEticaPage() {
       acc[item.seccion] = item.observacion;
       return acc;
     }, {});
+  }, [data]);
+
+  const documentoPrincipal = useMemo<Documento | null>(() => {
+    if (!data?.expediente.documentos?.length) return null;
+
+    const documentos = data.expediente.documentos;
+    const byTipo = documentos.find((doc) => normalize(doc.tipo).includes("protocolo"));
+    if (byTipo) return byTipo;
+
+    const byName = documentos.find(
+      (doc) =>
+        normalize(doc.nombre).includes("protocolo") ||
+        normalize(doc.nombre).includes("investigacion"),
+    );
+    if (byName) return byName;
+
+    return documentos[0] ?? null;
   }, [data]);
 
   if (isLoading) {
@@ -78,6 +100,66 @@ export default function EvaluacionEticaPage() {
     await conflictoMutation.mutateAsync(evaluacionId);
   };
 
+  const descargarDocumentoPrincipal = async (mode: "preview" | "download") => {
+    if (!documentoPrincipal) return;
+
+    setDocumentoError(null);
+    try {
+      const result = await documentoMutation.mutateAsync({
+        expedienteId: data.expediente.id,
+        documentoId: documentoPrincipal.id,
+        preferredFileName: documentoPrincipal.nombre,
+        mode,
+      });
+
+      const blobUrl = URL.createObjectURL(result.blob);
+
+      if (mode === "preview") {
+        const opened = window.open(blobUrl, "_blank", "noopener,noreferrer");
+        if (!opened) {
+          const anchor = document.createElement("a");
+          anchor.href = blobUrl;
+          anchor.download = result.fileName;
+          document.body.append(anchor);
+          anchor.click();
+          anchor.remove();
+        }
+      } else {
+        const anchor = document.createElement("a");
+        anchor.href = blobUrl;
+        anchor.download = result.fileName;
+        document.body.append(anchor);
+        anchor.click();
+        anchor.remove();
+      }
+
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+    } catch (error) {
+      if (documentoPrincipal.url) {
+        if (mode === "preview") {
+          window.open(documentoPrincipal.url, "_blank", "noopener,noreferrer");
+        } else {
+          const anchor = document.createElement("a");
+          anchor.href = documentoPrincipal.url;
+          anchor.download = documentoPrincipal.nombre;
+          anchor.rel = "noreferrer noopener";
+          document.body.append(anchor);
+          anchor.click();
+          anchor.remove();
+        }
+
+        setDocumentoError(
+          "Se usó la ruta directa del archivo porque el endpoint de descarga devolvió error.",
+        );
+        return;
+      }
+
+      setDocumentoError(
+        error instanceof Error ? error.message : "No se pudo obtener el documento principal.",
+      );
+    }
+  };
+
   return (
     <div className="grid gap-6 xl:grid-cols-2">
       <div className="space-y-6">
@@ -101,6 +183,63 @@ export default function EvaluacionEticaPage() {
             <p>
               <strong>Tipo:</strong> {data.expediente.tipoTramite}
             </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Investigador del expediente</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <p>
+              <strong>Nombre:</strong>{" "}
+              {data.investigador?.nombre || data.expediente.investigadorPrincipal}
+            </p>
+            <p>
+              <strong>Correo:</strong> {data.investigador?.correo ?? "No disponible"}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Documento principal para revisión</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {documentoPrincipal ? (
+              <>
+                <p>
+                  <strong>Archivo:</strong> {documentoPrincipal.nombre}
+                </p>
+                <p>
+                  <strong>Tipo:</strong> {documentoPrincipal.tipo}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => descargarDocumentoPrincipal("preview")}
+                    disabled={documentoMutation.isPending}
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Previsualizar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => descargarDocumentoPrincipal("download")}
+                    disabled={documentoMutation.isPending}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Descargar
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <p className="text-slate-500">
+                No hay documentos disponibles para este expediente en este momento.
+              </p>
+            )}
+
+            {documentoError ? <p className="text-red-600">{documentoError}</p> : null}
           </CardContent>
         </Card>
 

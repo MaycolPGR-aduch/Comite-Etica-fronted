@@ -23,13 +23,15 @@ export default function BandejaSecretariaPage() {
           <CardTitle>Expedientes recibidos</CardTitle>
         </CardHeader>
         <CardContent>
-          <DataTable<Expediente>
-            data={data?.expedientes ?? []}
-            loading={isLoading}
-            getRowId={(row) => row.id}
-            columns={[
-              { key: "codigo", header: "Codigo", cell: (row) => row.codigo },
-              { key: "titulo", header: "Titulo", cell: (row) => row.titulo },
+        <DataTable<Expediente>
+          data={data?.expedientes ?? []}
+          loading={isLoading}
+          getRowId={(row) => row.id}
+          searchAccessor={(row) => [row.codigo, row.titulo, row.facultad, row.estado]}
+          searchPlaceholder="Buscar por código, título o facultad"
+          columns={[
+            { key: "codigo", header: "Codigo", cell: (row) => row.codigo },
+            { key: "titulo", header: "Titulo", cell: (row) => row.titulo },
               { key: "facultad", header: "Facultad", cell: (row) => row.facultad },
               { key: "estado", header: "Estado", cell: (row) => <StatusBadge status={row.estado} /> },
               {

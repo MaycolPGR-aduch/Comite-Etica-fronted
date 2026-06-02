@@ -1,8 +1,11 @@
 "use client";
 
+import { Search } from "lucide-react";
 import { ReactNode, useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/shared/empty-state";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
@@ -25,31 +28,60 @@ interface DataTableProps<TData> {
   columns: DataTableColumn<TData>[];
   getRowId: (row: TData) => string;
   loading?: boolean;
+  searchAccessor?: (row: TData) => string | string[];
+  searchPlaceholder?: string;
+  searchLabel?: string;
   statusAccessor?: (row: TData) => string;
   statusOptions?: string[];
   emptyTitle?: string;
   emptyDescription?: string;
 }
 
+const normalizeText = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
 export function DataTable<TData>({
   data,
   columns,
   getRowId,
   loading,
+  searchAccessor,
+  searchPlaceholder = "Buscar registros",
+  searchLabel = "Buscar en la tabla",
   statusAccessor,
   statusOptions = [],
   emptyTitle = "No hay datos",
   emptyDescription = "No se encontraron registros para mostrar.",
 }: DataTableProps<TData>) {
+  const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
   const filteredData = useMemo(() => {
-    if (!statusAccessor || statusFilter === "all") {
-      return data;
-    }
+    const normalizedSearchTerm = normalizeText(searchTerm);
 
-    return data.filter((row) => statusAccessor(row) === statusFilter);
-  }, [data, statusAccessor, statusFilter]);
+    return data.filter((row) => {
+      if (statusAccessor && statusFilter !== "all" && statusAccessor(row) !== statusFilter) {
+        return false;
+      }
+
+      if (searchAccessor && normalizedSearchTerm.length > 0) {
+        const searchValue = searchAccessor(row);
+        const haystack = Array.isArray(searchValue) ? searchValue.join(" ") : searchValue;
+        if (!normalizeText(haystack).includes(normalizedSearchTerm)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [data, searchAccessor, searchTerm, statusAccessor, statusFilter]);
+
+  const hasActiveFilters =
+    Boolean(searchAccessor && searchTerm.trim()) || Boolean(statusAccessor && statusFilter !== "all");
 
   if (loading) {
     return <p className="text-sm text-slate-500">Cargando informacion...</p>;
@@ -61,28 +93,66 @@ export function DataTable<TData>({
 
   return (
     <div className="space-y-4">
-      {statusAccessor && statusOptions.length > 0 ? (
-        <div className="max-w-xs">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filtrar por estado" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los estados</SelectItem>
-              {statusOptions.map((status) => (
-                <SelectItem key={status} value={status}>
-                  {status}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {searchAccessor || (statusAccessor && statusOptions.length > 0) ? (
+        <div className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+          {searchAccessor ? (
+            <div className="relative min-w-[240px] flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                className="pl-9"
+                aria-label={searchLabel}
+                placeholder={searchPlaceholder}
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
+            </div>
+          ) : null}
+
+          {statusAccessor && statusOptions.length > 0 ? (
+            <div className="min-w-[220px]">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filtrar por estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los estados</SelectItem>
+                  {statusOptions.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+
+          {hasActiveFilters ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setSearchTerm("");
+                setStatusFilter("all");
+              }}
+            >
+              Limpiar filtros
+            </Button>
+          ) : null}
+
+          <p className="text-xs text-slate-500 sm:ml-auto">
+            Mostrando {filteredData.length} de {data.length}
+          </p>
         </div>
       ) : null}
 
       {filteredData.length === 0 ? (
         <EmptyState
-          title="Sin coincidencias"
-          description="No existen registros para el estado seleccionado."
+          title={data.length === 0 ? emptyTitle : "Sin coincidencias"}
+          description={
+            data.length === 0
+              ? emptyDescription
+              : "No existen registros que coincidan con los filtros aplicados."
+          }
         />
       ) : (
         <div className="rounded-lg border border-slate-200">

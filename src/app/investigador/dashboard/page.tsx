@@ -33,6 +33,8 @@ export default function InvestigadorDashboardPage() {
               data={data?.recientes ?? []}
               loading={isLoading}
               getRowId={(row) => row.id}
+              searchAccessor={(row) => [row.codigo, row.titulo, row.estado]}
+              searchPlaceholder="Buscar por código, título o estado"
               columns={[
                 {
                   key: "codigo",

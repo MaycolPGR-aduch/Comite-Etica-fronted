@@ -20,6 +20,8 @@ export default function MisExpedientesPage() {
           data={data}
           loading={isLoading}
           getRowId={(row) => row.id}
+          searchAccessor={(row) => [row.codigo, row.titulo, row.tipoTramite, row.facultad, row.estado]}
+          searchPlaceholder="Buscar por código, título, tipo o facultad"
           statusAccessor={(row) => row.estado}
           statusOptions={[...EXPEDIENTE_STATUSES]}
           columns={[

@@ -22,10 +22,14 @@ export default function ConsolidacionDictamenPage() {
   const generarMutation = useGenerarDictamen();
   const actualizarMutation = useActualizarDictamen();
   const firmarMutation = useFirmarDictamen();
+  const [actionError, setActionError] = useState<string | null>(null);
   const [draft, setDraft] = useState<{
     decision: "Aprobado" | "Observado";
     resumen: string;
   } | null>(null);
+
+  const resolveActionError = (error: unknown) =>
+    error instanceof Error ? error.message : "No se pudo completar la operación.";
 
   if (isLoading) {
     return <p className="text-sm text-slate-500">Cargando consolidacion...</p>;
@@ -45,30 +49,43 @@ export default function ConsolidacionDictamenPage() {
   const requiereDosEvaluaciones = !data.puedeGenerarDictamen;
 
   const generarDictamen = async () => {
-    await generarMutation.mutateAsync({
-      expedienteId,
-      decisionFinal: decision,
-      resumen,
-    });
+    setActionError(null);
+    try {
+      await generarMutation.mutateAsync({
+        expedienteId,
+        decisionFinal: decision,
+        resumen,
+      });
+    } catch (error) {
+      setActionError(resolveActionError(error));
+    }
   };
 
   const actualizarDictamen = async () => {
     if (!data?.dictamen?.id) return;
-
-    await actualizarMutation.mutateAsync({
-      dictamenId: data.dictamen.id,
-      expedienteId,
-      contenido: resumen,
-    });
+    setActionError(null);
+    try {
+      await actualizarMutation.mutateAsync({
+        dictamenId: data.dictamen.id,
+        expedienteId,
+        contenido: resumen,
+      });
+    } catch (error) {
+      setActionError(resolveActionError(error));
+    }
   };
 
   const firmarDictamen = async () => {
     if (!data?.dictamen?.id) return;
-
-    await firmarMutation.mutateAsync({
-      dictamenId: data.dictamen.id,
-      expedienteId,
-    });
+    setActionError(null);
+    try {
+      await firmarMutation.mutateAsync({
+        dictamenId: data.dictamen.id,
+        expedienteId,
+      });
+    } catch (error) {
+      setActionError(resolveActionError(error));
+    }
   };
 
   return (
@@ -259,6 +276,13 @@ export default function ConsolidacionDictamenPage() {
                   {firmarMutation.data.message}
                   {firmarMutation.data.numero ? ` (${firmarMutation.data.numero})` : ""}
                 </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {actionError ? (
+              <Alert className="border-red-200 bg-red-50">
+                <AlertTitle>Error al procesar dictamen</AlertTitle>
+                <AlertDescription>{actionError}</AlertDescription>
               </Alert>
             ) : null}
           </CardContent>
