@@ -33,7 +33,7 @@ export default function RecuperarContrasenaPage() {
     <AuthShell>
       <Card className="w-full max-w-md border-blue-100/70 bg-white/93 shadow-xl backdrop-blur-sm">
         <CardHeader className="space-y-2 text-center">
-          <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#0B57B7]">Seguridad</p>
+          <p className="text-sm font-bold uppercase tracking-[0.2em] text-primary">Seguridad</p>
           <CardTitle className="text-3xl font-bold text-[#08204A]">Recuperar contraseña</CardTitle>
           <p className="text-sm font-medium text-slate-600">
             Ingresa tu correo institucional para continuar el proceso.
@@ -57,7 +57,7 @@ export default function RecuperarContrasenaPage() {
             </Button>
 
             <div className="text-center text-sm font-medium">
-              <Link className="text-[#0B57B7] hover:text-[#4C93EB] hover:underline" href="/login">
+              <Link className="text-primary hover:text-[#4C93EB] hover:underline" href="/login">
                 Volver a inicio de sesion
               </Link>
             </div>

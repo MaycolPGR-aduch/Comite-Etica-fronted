@@ -15,11 +15,13 @@ import {
   useGuardarEvaluacion,
 } from "@/hooks";
 import type { Documento, Recommendation, RiskLevel } from "@/types";
-import { EmptyState } from "@/components/shared";
+import { EmptyState, PageHeader, PageSkeleton, useConfirm } from "@/components/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "@/components/ui/toast";
 const sections = ["Metodologia", "Riesgo", "Consentimiento", "Proteccion de datos"];
 
 export default function EvaluacionEticaPage() {
@@ -28,6 +30,7 @@ export default function EvaluacionEticaPage() {
   const { data, isLoading, error } = useContextoEvaluacion(evaluacionId);
   const mutation = useGuardarEvaluacion();
   const conflictoMutation = useDeclararConflictoEvaluacion();
+  const confirm = useConfirm();
   const expedienteId = data?.expediente.id ?? "";
   const preanalisisQuery = useIAPreanalisis(expedienteId);
   const inconsistenciasQuery = useIAInconsistencias(expedienteId);
@@ -68,7 +71,7 @@ export default function EvaluacionEticaPage() {
   }, [data]);
 
   if (isLoading) {
-    return <p className="text-sm text-slate-500">Cargando contexto de evaluacion...</p>;
+    return <PageSkeleton blocks={2} />;
   }
 
   if (!data) {
@@ -84,20 +87,55 @@ export default function EvaluacionEticaPage() {
   const recomendacion = draftRecomendacion ?? data.evaluacionActual.recomendacion;
 
   const submit = async (enviar: boolean) => {
-    await mutation.mutateAsync({
-      evaluacionId,
-      riesgo,
-      recomendacion,
-      secciones: sections.map((section) => ({
-        seccion: section,
-        observacion: observaciones[section] ?? defaultObservaciones[section] ?? "",
-      })),
-      enviar,
-    });
+    if (enviar) {
+      const confirmed = await confirm({
+        title: "Enviar evaluación",
+        description:
+          "Una vez enviada, la evaluación quedará registrada como definitiva y no podrás editarla. ¿Deseas enviarla?",
+        confirmLabel: "Enviar evaluación",
+      });
+      if (!confirmed) return;
+    }
+
+    try {
+      const result = await mutation.mutateAsync({
+        evaluacionId,
+        riesgo,
+        recomendacion,
+        secciones: sections.map((section) => ({
+          seccion: section,
+          observacion: observaciones[section] ?? defaultObservaciones[section] ?? "",
+        })),
+        enviar,
+      });
+      toast.success(enviar ? "Evaluación enviada" : "Avance guardado", result.message);
+    } catch (error) {
+      toast.error(
+        enviar ? "No se pudo enviar la evaluación" : "No se pudo guardar el avance",
+        error instanceof Error ? error.message : undefined,
+      );
+    }
   };
 
   const declararConflicto = async () => {
-    await conflictoMutation.mutateAsync(evaluacionId);
+    const confirmed = await confirm({
+      title: "Declarar conflicto de interés",
+      description:
+        "Al declarar conflicto de interés serás apartado de esta evaluación. Esta acción no puede deshacerse. ¿Deseas continuar?",
+      confirmLabel: "Declarar conflicto",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
+
+    try {
+      const result = await conflictoMutation.mutateAsync(evaluacionId);
+      toast.success("Conflicto de interés registrado", result.message);
+    } catch (error) {
+      toast.error(
+        "No se pudo declarar el conflicto",
+        error instanceof Error ? error.message : undefined,
+      );
+    }
   };
 
   const descargarDocumentoPrincipal = async (mode: "preview" | "download") => {
@@ -161,7 +199,12 @@ export default function EvaluacionEticaPage() {
   };
 
   return (
-    <div className="grid gap-6 xl:grid-cols-2">
+    <div className="space-y-6">
+      <PageHeader
+        title="Evaluación ética"
+        description={`Expediente ${data.expediente.codigo} · ${data.expediente.titulo}`}
+      />
+      <div className="grid gap-6 xl:grid-cols-2">
       <div className="space-y-6">
         <Card>
           <CardHeader>
@@ -234,12 +277,12 @@ export default function EvaluacionEticaPage() {
                 </div>
               </>
             ) : (
-              <p className="text-slate-500">
+              <p className="text-muted-foreground">
                 No hay documentos disponibles para este expediente en este momento.
               </p>
             )}
 
-            {documentoError ? <p className="text-red-600">{documentoError}</p> : null}
+            {documentoError ? <p className="text-destructive">{documentoError}</p> : null}
           </CardContent>
         </Card>
 
@@ -252,14 +295,18 @@ export default function EvaluacionEticaPage() {
             inconsistenciasQuery.isLoading ||
             riesgosQuery.isLoading ||
             observacionesIAQuery.isLoading ? (
-              <p>Cargando sugerencias IA...</p>
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+                <Skeleton className="h-4 w-2/3" />
+              </div>
             ) : null}
 
             {preanalisisQuery.isError ||
             inconsistenciasQuery.isError ||
             riesgosQuery.isError ||
             observacionesIAQuery.isError ? (
-              <p className="text-red-700">
+              <p className="text-destructive">
                 {(preanalisisQuery.error as Error | undefined)?.message ||
                   (inconsistenciasQuery.error as Error | undefined)?.message ||
                   (riesgosQuery.error as Error | undefined)?.message ||
@@ -340,7 +387,7 @@ export default function EvaluacionEticaPage() {
         <CardContent className="space-y-4">
           {sections.map((section) => (
             <div key={section} className="space-y-2">
-              <p className="text-sm font-medium text-[#08204A]">{section}</p>
+              <p className="text-sm font-medium text-foreground">{section}</p>
               <Textarea
                 rows={3}
                 value={observaciones[section] ?? defaultObservaciones[section] ?? ""}
@@ -362,8 +409,10 @@ export default function EvaluacionEticaPage() {
                 <button
                   key={option}
                   type="button"
-                  className={`rounded-md border px-3 py-2 text-sm ${
-                    riesgo === option ? "border-blue-400 bg-blue-50" : "border-slate-200"
+                  className={`rounded-md border px-3 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+                    riesgo === option
+                      ? "border-primary bg-secondary font-medium text-secondary-foreground"
+                      : "border-border text-muted-foreground hover:bg-muted"
                   }`}
                   onClick={() => setDraftRiesgo(option)}
                 >
@@ -386,8 +435,10 @@ export default function EvaluacionEticaPage() {
                 <button
                   key={option}
                   type="button"
-                  className={`rounded-md border px-3 py-2 text-left text-sm ${
-                    recomendacion === option ? "border-blue-400 bg-blue-50" : "border-slate-200"
+                  className={`rounded-md border px-3 py-2 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+                    recomendacion === option
+                      ? "border-primary bg-secondary font-medium text-secondary-foreground"
+                      : "border-border text-muted-foreground hover:bg-muted"
                   }`}
                   onClick={() => setDraftRecomendacion(option)}
                 >
@@ -414,7 +465,7 @@ export default function EvaluacionEticaPage() {
           </div>
 
           {error ? (
-            <Alert className="border-red-200 bg-red-50">
+            <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
               <AlertTitle>Error</AlertTitle>
               <AlertDescription>
                 {error instanceof Error ? error.message : "No se pudo cargar la evaluacion."}
@@ -423,20 +474,21 @@ export default function EvaluacionEticaPage() {
           ) : null}
 
           {conflictoMutation.isSuccess ? (
-            <Alert className="border-amber-200 bg-amber-50">
+            <Alert className="border-amber-200 bg-amber-50 text-amber-900">
               <AlertTitle>Conflicto registrado</AlertTitle>
               <AlertDescription>{conflictoMutation.data.message}</AlertDescription>
             </Alert>
           ) : null}
 
           {mutation.isSuccess ? (
-            <Alert className="border-green-200 bg-green-50">
+            <Alert className="border-emerald-200 bg-emerald-50 text-emerald-900">
               <AlertTitle>Operacion exitosa</AlertTitle>
               <AlertDescription>{mutation.data.message}</AlertDescription>
             </Alert>
           ) : null}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

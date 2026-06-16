@@ -3,6 +3,7 @@
 import { useMyProfile } from "@/hooks";
 import { roleLabel } from "@/lib/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const formatBoolean = (value: boolean | undefined) => (value ? "Sí" : "No");
 
@@ -16,7 +17,12 @@ export function ProfileSummary() {
           <CardTitle>Mi perfil</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-slate-500">Cargando perfil...</p>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
         </CardContent>
       </Card>
     );
@@ -29,7 +35,7 @@ export function ProfileSummary() {
           <CardTitle>Mi perfil</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-destructive">
             No se pudo cargar tu perfil desde el backend.
           </p>
         </CardContent>
@@ -49,30 +55,30 @@ export function ProfileSummary() {
       <CardContent>
         <dl className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1">
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Nombre</dt>
-            <dd className="text-sm text-slate-900">{profile.nombre}</dd>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Nombre</dt>
+            <dd className="text-sm text-foreground">{profile.nombre}</dd>
           </div>
           <div className="space-y-1">
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Correo</dt>
-            <dd className="text-sm text-slate-900">{profile.correo}</dd>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Correo</dt>
+            <dd className="text-sm text-foreground">{profile.correo}</dd>
           </div>
           <div className="space-y-1">
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Rol</dt>
-            <dd className="text-sm text-slate-900">{roleLabel[profile.role]}</dd>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rol</dt>
+            <dd className="text-sm text-foreground">{roleLabel[profile.role]}</dd>
           </div>
           <div className="space-y-1">
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Especialidad</dt>
-            <dd className="text-sm text-slate-900">{profile.especialidad ?? "No aplica"}</dd>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Especialidad</dt>
+            <dd className="text-sm text-foreground">{profile.especialidad ?? "No aplica"}</dd>
           </div>
           <div className="space-y-1">
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Carga de trabajo</dt>
-            <dd className="text-sm text-slate-900">
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Carga de trabajo</dt>
+            <dd className="text-sm text-foreground">
               {profile.cargaTrabajo !== undefined ? profile.cargaTrabajo : "No aplica"}
             </dd>
           </div>
           <div className="space-y-1">
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Conflicto de interés</dt>
-            <dd className="text-sm text-slate-900">{formatBoolean(profile.conflictoInteres)}</dd>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Conflicto de interés</dt>
+            <dd className="text-sm text-foreground">{formatBoolean(profile.conflictoInteres)}</dd>
           </div>
         </dl>
       </CardContent>

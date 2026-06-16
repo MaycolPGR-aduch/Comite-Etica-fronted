@@ -9,11 +9,12 @@ import {
   useFirmarDictamen,
   useGenerarDictamen,
 } from "@/hooks";
-import { EmptyState } from "@/components/shared";
+import { EmptyState, PageHeader, PageSkeleton, useConfirm } from "@/components/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "@/components/ui/toast";
 
 export default function ConsolidacionDictamenPage() {
   const params = useParams<{ id: string }>();
@@ -22,6 +23,7 @@ export default function ConsolidacionDictamenPage() {
   const generarMutation = useGenerarDictamen();
   const actualizarMutation = useActualizarDictamen();
   const firmarMutation = useFirmarDictamen();
+  const confirm = useConfirm();
   const [actionError, setActionError] = useState<string | null>(null);
   const [draft, setDraft] = useState<{
     decision: "Aprobado" | "Observado";
@@ -32,7 +34,7 @@ export default function ConsolidacionDictamenPage() {
     error instanceof Error ? error.message : "No se pudo completar la operación.";
 
   if (isLoading) {
-    return <p className="text-sm text-slate-500">Cargando consolidacion...</p>;
+    return <PageSkeleton blocks={2} />;
   }
 
   if (error || !data) {
@@ -49,15 +51,25 @@ export default function ConsolidacionDictamenPage() {
   const requiereDosEvaluaciones = !data.puedeGenerarDictamen;
 
   const generarDictamen = async () => {
+    const confirmed = await confirm({
+      title: "Generar y comunicar dictamen",
+      description: `Se generará el dictamen con la decisión "${decision}" y se comunicará el resultado del expediente. ¿Deseas continuar?`,
+      confirmLabel: "Generar dictamen",
+    });
+    if (!confirmed) return;
+
     setActionError(null);
     try {
-      await generarMutation.mutateAsync({
+      const result = await generarMutation.mutateAsync({
         expedienteId,
         decisionFinal: decision,
         resumen,
       });
+      toast.success("Dictamen generado", `Resultado comunicado: ${result.decisionFinal}.`);
     } catch (error) {
-      setActionError(resolveActionError(error));
+      const message = resolveActionError(error);
+      setActionError(message);
+      toast.error("No se pudo generar el dictamen", message);
     }
   };
 
@@ -70,41 +82,56 @@ export default function ConsolidacionDictamenPage() {
         expedienteId,
         contenido: resumen,
       });
+      toast.success("Dictamen actualizado", "Se guardaron los cambios del dictamen.");
     } catch (error) {
-      setActionError(resolveActionError(error));
+      const message = resolveActionError(error);
+      setActionError(message);
+      toast.error("No se pudo actualizar el dictamen", message);
     }
   };
 
   const firmarDictamen = async () => {
     if (!data?.dictamen?.id) return;
+
+    const confirmed = await confirm({
+      title: "Firmar dictamen",
+      description:
+        "La firma del dictamen es una acción definitiva e irreversible. Una vez firmado, no podrá modificarse. ¿Deseas firmar?",
+      confirmLabel: "Firmar dictamen",
+    });
+    if (!confirmed) return;
+
     setActionError(null);
     try {
-      await firmarMutation.mutateAsync({
+      const result = await firmarMutation.mutateAsync({
         dictamenId: data.dictamen.id,
         expedienteId,
       });
+      toast.success(
+        "Dictamen firmado",
+        `${result.message}${result.numero ? ` (${result.numero})` : ""}`,
+      );
     } catch (error) {
-      setActionError(resolveActionError(error));
+      const message = resolveActionError(error);
+      setActionError(message);
+      toast.error("No se pudo firmar el dictamen", message);
     }
   };
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Consolidacion y dictamen final</CardTitle>
-          <p className="text-sm text-slate-500">
-            Expediente: {data.expediente.codigo} - {data.expediente.titulo}
-          </p>
-          {data.dictamen ? (
-            <p className="text-sm text-slate-600">
-              Dictamen actual: {data.dictamen.numero ?? "Sin número"} · Tipo:{" "}
-              {data.dictamen.tipo ?? data.dictamen.decisionFinal} ·{" "}
-              {data.dictamen.firmado ? "Firmado" : "Pendiente de firma"}
-            </p>
-          ) : null}
-        </CardHeader>
-      </Card>
+      <PageHeader
+        title="Consolidación y dictamen final"
+        description={`Expediente ${data.expediente.codigo} · ${data.expediente.titulo}`}
+      />
+
+      {data.dictamen ? (
+        <p className="-mt-2 text-sm text-muted-foreground">
+          Dictamen actual: {data.dictamen.numero ?? "Sin número"} · Tipo:{" "}
+          {data.dictamen.tipo ?? data.dictamen.decisionFinal} ·{" "}
+          {data.dictamen.firmado ? "Firmado" : "Pendiente de firma"}
+        </p>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
@@ -122,13 +149,13 @@ export default function ConsolidacionDictamenPage() {
             ) : null}
 
             {data.evaluaciones.map((evaluacion, index) => (
-              <div key={evaluacion.id} className="rounded-md border border-slate-200 p-3">
+              <div key={evaluacion.id} className="rounded-md border border-border p-3">
                 <p className="font-medium">Evaluador {index + 1}</p>
-                <p className="text-sm text-slate-600">Riesgo: {evaluacion.riesgo}</p>
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-muted-foreground">Riesgo: {evaluacion.riesgo}</p>
+                <p className="text-sm text-muted-foreground">
                   Recomendacion: {evaluacion.recomendacion}
                 </p>
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-muted-foreground">
                   Estado:{" "}
                   {evaluacion.conflictoInteres
                     ? "Conflicto de interés"
@@ -137,11 +164,11 @@ export default function ConsolidacionDictamenPage() {
                       : "Evaluación pendiente"}
                 </p>
 
-                <details className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-2">
-                  <summary className="cursor-pointer select-none text-sm font-medium text-[#08204A]">
+                <details className="mt-3 rounded-md border border-border bg-muted/40 p-2">
+                  <summary className="cursor-pointer select-none text-sm font-medium text-foreground">
                     Ver evaluación
                   </summary>
-                  <div className="mt-2 space-y-2 text-sm text-slate-700">
+                  <div className="mt-2 space-y-2 text-sm text-muted-foreground">
                     {evaluacion.secciones.length === 0 ? (
                       <p>Sin respuestas registradas en el formulario ético.</p>
                     ) : (
@@ -190,10 +217,10 @@ export default function ConsolidacionDictamenPage() {
                   key={option}
                   type="button"
                   onClick={() => setDraft({ decision: option, resumen })}
-                  className={`rounded-md border px-3 py-2 text-sm ${
+                  className={`rounded-md border px-3 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                     decision === option
-                      ? "border-blue-400 bg-blue-50 text-[#08204A]"
-                      : "border-slate-200 text-slate-600"
+                      ? "border-primary bg-secondary font-medium text-secondary-foreground"
+                      : "border-border text-muted-foreground hover:bg-muted"
                   }`}
                 >
                   {option}
@@ -253,7 +280,7 @@ export default function ConsolidacionDictamenPage() {
             )}
 
             {generarMutation.isSuccess ? (
-              <Alert className="border-green-200 bg-green-50">
+              <Alert className="border-emerald-200 bg-emerald-50 text-emerald-900">
                 <AlertTitle>Dictamen generado</AlertTitle>
                 <AlertDescription>
                   Resultado comunicado: {generarMutation.data.decisionFinal}. Número:{" "}
@@ -263,14 +290,14 @@ export default function ConsolidacionDictamenPage() {
             ) : null}
 
             {actualizarMutation.isSuccess ? (
-              <Alert className="border-blue-200 bg-blue-50">
+              <Alert className="border-primary/30 bg-secondary text-secondary-foreground">
                 <AlertTitle>Dictamen actualizado</AlertTitle>
                 <AlertDescription>Se guardaron los cambios del dictamen.</AlertDescription>
               </Alert>
             ) : null}
 
             {firmarMutation.isSuccess ? (
-              <Alert className="border-green-200 bg-green-50">
+              <Alert className="border-emerald-200 bg-emerald-50 text-emerald-900">
                 <AlertTitle>Dictamen firmado</AlertTitle>
                 <AlertDescription>
                   {firmarMutation.data.message}
@@ -280,7 +307,7 @@ export default function ConsolidacionDictamenPage() {
             ) : null}
 
             {actionError ? (
-              <Alert className="border-red-200 bg-red-50">
+              <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
                 <AlertTitle>Error al procesar dictamen</AlertTitle>
                 <AlertDescription>{actionError}</AlertDescription>
               </Alert>

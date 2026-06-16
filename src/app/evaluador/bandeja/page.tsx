@@ -19,7 +19,7 @@ export default function BandejaEvaluadorPage() {
     <Card>
       <CardHeader>
         <CardTitle>Bandeja del evaluador</CardTitle>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           Evaluaciones asignadas al usuario autenticado.
         </p>
       </CardHeader>
@@ -57,7 +57,7 @@ export default function BandejaEvaluadorPage() {
               cell: (row) => (
                 <span
                   className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                    estadoClassMap[row.estado] ?? "bg-slate-100 text-slate-700"
+                    estadoClassMap[row.estado] ?? "bg-muted text-muted-foreground"
                   }`}
                 >
                   {row.estado}
@@ -75,7 +75,7 @@ export default function BandejaEvaluadorPage() {
               header: "Accion",
               cell: (row) => (
                 <Link
-                  className="text-[#0B57B7] hover:underline"
+                  className="text-primary hover:underline"
                   href={`/evaluador/evaluacion/${row.id}`}
                 >
                   Abrir evaluacion

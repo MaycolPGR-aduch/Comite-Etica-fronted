@@ -12,10 +12,12 @@ import {
 } from "@/hooks";
 import { getRequiredDocumentsByTipoTramite } from "@/lib/document-requirements";
 import { DOCUMENT_UPLOAD_ACCEPTED_EXTENSIONS, expedientesService } from "@/services/expedientes.service";
-import { DocumentChecklist, EmptyState, StatusBadge, Timeline } from "@/components/shared";
+import { DocumentChecklist, ErrorState, PageHeader, PageSkeleton, StatusBadge, Timeline } from "@/components/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "@/components/ui/toast";
 import type { Documento } from "@/types";
 
 export default function DetalleExpedientePage() {
@@ -28,14 +30,15 @@ export default function DetalleExpedientePage() {
   const [dictamenError, setDictamenError] = useState<string | null>(null);
 
   if (isLoading) {
-    return <p className="text-sm text-slate-500">Cargando detalle...</p>;
+    return <PageSkeleton blocks={3} />;
   }
 
   if (error || !data) {
     return (
-      <EmptyState
+      <ErrorState
         title="Expediente no disponible"
         description="No se encontro informacion para el expediente seleccionado."
+        onRetry={() => refetch()}
       />
     );
   }
@@ -106,6 +109,7 @@ export default function DetalleExpedientePage() {
       esObligatorio: document.requerido,
     });
     await refetch();
+    toast.success("Documento cargado", `${document.nombre} se registró correctamente.`);
   };
 
   const descargarDictamen = async () => {
@@ -128,21 +132,26 @@ export default function DetalleExpedientePage() {
       anchor.remove();
       setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
     } catch (downloadError) {
-      setDictamenError(
+      const message =
         downloadError instanceof Error
           ? downloadError.message
-          : "No se pudo descargar el archivo del dictamen.",
-      );
+          : "No se pudo descargar el archivo del dictamen.";
+      setDictamenError(message);
+      toast.error("No se pudo descargar el dictamen", message);
     }
   };
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        title="Detalle del expediente"
+        description="Seguimiento documental, observaciones, dictamen y actividad del expediente."
+      />
       <Card>
         <CardHeader className="flex flex-row items-start justify-between">
           <div>
             <CardTitle>{expediente.titulo}</CardTitle>
-            <p className="text-sm text-slate-500">{expediente.codigo}</p>
+            <p className="text-sm text-muted-foreground">{expediente.codigo}</p>
           </div>
           <StatusBadge status={expediente.estado} />
         </CardHeader>
@@ -219,7 +228,7 @@ export default function DetalleExpedientePage() {
                   ) : null}
                   <div className="space-y-1">
                     <p className="font-semibold">Resumen final</p>
-                    <p className="whitespace-pre-line text-slate-700">
+                    <p className="whitespace-pre-line text-muted-foreground">
                       {dictamen.resumen || "Sin resumen disponible."}
                     </p>
                   </div>
@@ -236,12 +245,12 @@ export default function DetalleExpedientePage() {
                         : "Descargar dictamen firmado"}
                     </Button>
                   ) : (
-                    <p className="text-slate-500">El archivo firmado aún no está disponible.</p>
+                    <p className="text-muted-foreground">El archivo firmado aún no está disponible.</p>
                   )}
-                  {dictamenError ? <p className="text-red-600">{dictamenError}</p> : null}
+                  {dictamenError ? <p className="text-destructive">{dictamenError}</p> : null}
                 </>
               ) : (
-                <p className="text-slate-500">Dictamen aún no disponible.</p>
+                <p className="text-muted-foreground">Dictamen aún no disponible.</p>
               )}
             </CardContent>
           </Card>
@@ -252,18 +261,18 @@ export default function DetalleExpedientePage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {observaciones.length === 0 ? (
-                <p className="text-sm text-slate-500">No hay observaciones activas.</p>
+                <p className="text-sm text-muted-foreground">No hay observaciones activas.</p>
               ) : (
                 observaciones.map((observation) => (
                   <div key={observation.id} className="rounded-md border border-amber-200 bg-amber-50 p-3">
                     <p className="text-sm font-medium">{observation.seccion}</p>
-                    <p className="text-sm text-slate-700">{observation.comentario}</p>
+                    <p className="text-sm text-foreground/80">{observation.comentario}</p>
                   </div>
                 ))
               )}
 
               <Link
-                className="inline-block text-sm text-[#0B57B7] hover:underline"
+                className="inline-block text-sm text-primary hover:underline"
                 href={`/investigador/expedientes/${expediente.id}/subsanacion`}
               >
                 Ir a subsanacion
@@ -278,9 +287,14 @@ export default function DetalleExpedientePage() {
           <CardTitle>Resumen IA del expediente</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
-          {iaResumenQuery.isLoading ? <p className="text-slate-500">Cargando resumen IA...</p> : null}
+          {iaResumenQuery.isLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-4/5" />
+            </div>
+          ) : null}
           {iaResumenQuery.isError ? (
-            <p className="text-red-600">
+            <p className="text-destructive">
               {iaResumenQuery.error instanceof Error
                 ? iaResumenQuery.error.message
                 : "No se pudo obtener el resumen IA."}

@@ -12,7 +12,7 @@ export function AppSidebar() {
   const navItems = roleNavigation[role];
 
   return (
-    <aside className="hidden w-64 shrink-0 border-r border-blue-100 bg-white p-4 lg:block">
+    <aside className="hidden w-64 shrink-0 border-r border-border bg-card p-4 lg:block">
       <div className="mb-6 rounded-lg bg-[#08204A] p-4 text-white">
         <p className="text-sm opacity-85">Comite de Etica</p>
         <p className="font-semibold">{roleLabel[role]}</p>
@@ -26,10 +26,11 @@ export function AppSidebar() {
             <Link
               key={`${item.href}-${item.label}`}
               href={item.href}
-              className={`block rounded-md px-3 py-2 text-sm transition ${
+              aria-current={isActive ? "page" : undefined}
+              className={`flex items-center gap-2 rounded-md border-l-2 px-3 py-2 text-sm transition-colors ${
                 isActive
-                  ? "bg-blue-100 font-medium text-[#08204A]"
-                  : "text-slate-600 hover:bg-slate-100"
+                  ? "border-primary bg-secondary font-medium text-secondary-foreground"
+                  : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
               {item.label}
@@ -38,9 +39,9 @@ export function AppSidebar() {
         })}
       </nav>
 
-      <div className="mt-8 border-t border-blue-100 pt-4 text-sm text-slate-500">
+      <div className="mt-8 border-t border-border pt-4 text-sm">
         <Link
-          className="text-[#0B57B7] hover:underline"
+          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 font-medium text-primary transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           href="/login"
           onClick={() => clearAuthSession()}
         >

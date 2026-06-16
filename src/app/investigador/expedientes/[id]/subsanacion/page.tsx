@@ -4,21 +4,23 @@ import { useParams } from "next/navigation";
 import { useState } from "react";
 
 import { useExpedienteDetalle, useReenviarSubsanacion } from "@/hooks";
-import { EmptyState } from "@/components/shared";
+import { EmptyState, PageHeader, PageSkeleton, useConfirm } from "@/components/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "@/components/ui/toast";
 
 export default function SubsanacionPage() {
   const params = useParams<{ id: string }>();
   const expedienteId = String(params.id);
   const { data, isLoading } = useExpedienteDetalle(expedienteId);
   const reenviarMutation = useReenviarSubsanacion();
+  const confirm = useConfirm();
   const [observacionesConsolidadas, setObservacionesConsolidadas] = useState("");
 
   if (isLoading) {
-    return <p className="text-sm text-slate-500">Cargando observaciones...</p>;
+    return <PageSkeleton blocks={2} />;
   }
 
   if (!data) {
@@ -37,19 +39,36 @@ export default function SubsanacionPage() {
     !reenviarMutation.isPending;
 
   const onSubmit = async () => {
-    await reenviarMutation.mutateAsync({
-      expedienteId,
-      observaciones: observacionesConsolidadas,
+    const confirmed = await confirm({
+      title: "Reenviar expediente",
+      description:
+        "El expediente subsanado se reenviará al Comité de Ética para una nueva revisión. ¿Deseas continuar?",
+      confirmLabel: "Reenviar",
     });
+    if (!confirmed) return;
+
+    try {
+      const result = await reenviarMutation.mutateAsync({
+        expedienteId,
+        observaciones: observacionesConsolidadas,
+      });
+      toast.success("Subsanación enviada", result.message);
+    } catch (error) {
+      toast.error(
+        "No se pudo reenviar el expediente",
+        error instanceof Error ? error.message : undefined,
+      );
+    }
   };
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        title="Subsanación de observaciones"
+        description="Responde a las observaciones del Comité y reenvía el expediente para una nueva revisión."
+      />
       <Card>
-        <CardHeader>
-          <CardTitle>Subsanacion de observaciones</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-6">
           {!hasObservaciones ? (
             <Alert>
               <AlertTitle>Sin observaciones pendientes</AlertTitle>
@@ -58,14 +77,14 @@ export default function SubsanacionPage() {
           ) : (
             <div className="space-y-4">
               {data.observaciones.map((observation) => (
-                <div key={observation.id} className="space-y-2 rounded-md border border-amber-200 p-4">
-                  <p className="text-sm font-medium text-[#08204A]">{observation.seccion}</p>
-                  <p className="text-sm text-slate-700">{observation.comentario}</p>
+                <div key={observation.id} className="space-y-2 rounded-md border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-sm font-medium text-foreground">{observation.seccion}</p>
+                  <p className="text-sm text-foreground/80">{observation.comentario}</p>
                 </div>
               ))}
 
-              <div className="space-y-2 rounded-md border border-blue-200 bg-blue-50 p-4">
-                <p className="text-sm font-medium text-[#08204A]">
+              <div className="space-y-2 rounded-md border border-primary/30 bg-secondary p-4">
+                <p className="text-sm font-medium text-secondary-foreground">
                   Respuesta consolidada de subsanación
                 </p>
                 <Textarea
@@ -74,15 +93,14 @@ export default function SubsanacionPage() {
                   value={observacionesConsolidadas}
                   onChange={(event) => setObservacionesConsolidadas(event.target.value)}
                 />
-                <p className="text-xs text-slate-600">
-                  El endpoint backend recibe un solo campo de texto (`observaciones`) con la
-                  respuesta consolidada.
+                <p className="text-xs text-muted-foreground">
+                  Redacte una sola respuesta consolidada que atienda todas las observaciones.
                 </p>
               </div>
             </div>
           )}
 
-          <div className="rounded-md border border-dashed border-blue-300 p-4 text-sm text-slate-600">
+          <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
             Carga de nueva version documental (mock):
             <ul className="mt-2 list-disc pl-6">
               <li>Protocolo_v2.pdf</li>
@@ -95,7 +113,7 @@ export default function SubsanacionPage() {
           </Button>
 
           {reenviarMutation.isSuccess ? (
-            <Alert className="border-green-200 bg-green-50">
+            <Alert className="border-emerald-200 bg-emerald-50 text-emerald-900">
               <AlertTitle>Subsanacion enviada</AlertTitle>
               <AlertDescription>
                 {reenviarMutation.data.message}

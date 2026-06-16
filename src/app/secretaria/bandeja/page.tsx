@@ -38,7 +38,7 @@ export default function BandejaSecretariaPage() {
                 key: "acciones",
                 header: "Acciones",
                 cell: (row) => (
-                  <Link className="text-[#0B57B7] hover:underline" href={`/secretaria/revision/${row.id}`}>
+                  <Link className="text-primary hover:underline" href={`/secretaria/revision/${row.id}`}>
                     Revisar expediente
                   </Link>
                 ),

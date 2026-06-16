@@ -65,7 +65,7 @@ export default function AcercaComiteEticaPage() {
       <header className="border-b border-blue-100 bg-white/95">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 lg:px-8">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#0B57B7]">Comité de Ética</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">Comité de Ética</p>
             <h1 className="text-lg font-bold text-[#08204A]">Portal informativo</h1>
           </div>
           <Button asChild className="font-semibold" size="sm">
@@ -78,7 +78,7 @@ export default function AcercaComiteEticaPage() {
         <section className="grid gap-6 lg:grid-cols-2">
           <Card className="border-blue-100 shadow-sm">
             <CardHeader className="space-y-3">
-              <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#0B57B7]">Acerca del sistema</p>
+              <p className="text-sm font-bold uppercase tracking-[0.2em] text-primary">Acerca del sistema</p>
               <CardTitle className="text-3xl font-bold leading-tight text-[#08204A]">
                 Gestión y evaluación de protocolos del Comité de Ética
               </CardTitle>
@@ -146,7 +146,7 @@ export default function AcercaComiteEticaPage() {
               <ul className="space-y-2">
                 {etapas.map((etapa) => (
                   <li key={etapa} className="flex items-start gap-2">
-                    <ChevronRight className="mt-0.5 h-4 w-4 text-[#0B57B7]" />
+                    <ChevronRight className="mt-0.5 h-4 w-4 text-primary" />
                     <span>{etapa}</span>
                   </li>
                 ))}

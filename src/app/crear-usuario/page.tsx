@@ -88,7 +88,7 @@ export default function CrearUsuarioPage() {
     <AuthShell>
       <Card className="w-full max-w-lg border-blue-100/70 bg-white/93 shadow-xl backdrop-blur-sm">
           <CardHeader className="space-y-2 text-center">
-          <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#0B57B7]">Registro</p>
+          <p className="text-sm font-bold uppercase tracking-[0.2em] text-primary">Registro</p>
           <CardTitle className="text-3xl font-bold text-[#08204A]">Crear usuario</CardTitle>
           <p className="text-sm font-medium text-slate-600">Registro conectado al backend del sistema.</p>
         </CardHeader>
@@ -178,7 +178,7 @@ export default function CrearUsuarioPage() {
             </Button>
 
             <div className="text-center text-sm font-medium">
-              <Link className="text-[#0B57B7] hover:text-[#4C93EB] hover:underline" href="/login">
+              <Link className="text-primary hover:text-[#4C93EB] hover:underline" href="/login">
                 Volver a inicio de sesion
               </Link>
             </div>

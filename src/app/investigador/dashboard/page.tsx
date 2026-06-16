@@ -40,7 +40,7 @@ export default function InvestigadorDashboardPage() {
                   key: "codigo",
                   header: "Codigo",
                   cell: (row) => (
-                    <Link className="text-[#0B57B7] hover:underline" href={`/investigador/expedientes/${row.id}`}>
+                    <Link className="text-primary hover:underline" href={`/investigador/expedientes/${row.id}`}>
                       {row.codigo}
                     </Link>
                   ),
@@ -56,7 +56,7 @@ export default function InvestigadorDashboardPage() {
                   header: "Acciones",
                   cell: (row) => (
                     <Link
-                      className="text-sm text-[#0B57B7] hover:underline"
+                      className="text-sm text-primary hover:underline"
                       href={`/investigador/expedientes/${row.id}`}
                     >
                       Ver detalle

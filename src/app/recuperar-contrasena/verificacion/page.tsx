@@ -18,7 +18,7 @@ export default function VerificacionRecuperacionPage() {
     <AuthShell>
       <Card className="w-full max-w-md border-blue-100/70 bg-white/93 shadow-xl backdrop-blur-sm">
         <CardHeader className="space-y-2 text-center">
-          <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#0B57B7]">Verificacion</p>
+          <p className="text-sm font-bold uppercase tracking-[0.2em] text-primary">Verificacion</p>
           <CardTitle className="text-3xl font-bold text-[#08204A]">Ingresa el codigo</CardTitle>
           <p className="text-sm font-medium text-slate-600">
             Te enviamos un codigo de 6 digitos al correo registrado (mock).
@@ -49,10 +49,10 @@ export default function VerificacionRecuperacionPage() {
           </Button>
 
           <div className="flex items-center justify-between text-sm font-medium">
-            <Link className="text-[#0B57B7] hover:text-[#4C93EB] hover:underline" href="/recuperar-contrasena">
+            <Link className="text-primary hover:text-[#4C93EB] hover:underline" href="/recuperar-contrasena">
               Cambiar correo
             </Link>
-            <button className="text-[#0B57B7] hover:text-[#4C93EB] hover:underline" type="button">
+            <button className="text-primary hover:text-[#4C93EB] hover:underline" type="button">
               Reenviar codigo
             </button>
           </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Menu } from "lucide-react";
+import { LogOut, Menu, UserRound } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 import { roleLabel, roleNavigation, roleProfilePath, resolveRoleFromPath } from "@/lib/navigation";
@@ -54,7 +54,7 @@ export function AppHeader() {
   const title = resolveTitle(pathname);
 
   return (
-    <header className="sticky top-0 z-20 border-b border-blue-100 bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-20 border-b border-border bg-card/95 backdrop-blur">
       <div className="mx-auto flex h-16 w-full items-center justify-between px-4 lg:px-8">
         <div className="flex items-center gap-3">
           <Sheet>
@@ -67,12 +67,12 @@ export function AppHeader() {
               <SheetHeader>
                 <SheetTitle>Menu</SheetTitle>
               </SheetHeader>
-              <nav className="mt-6 space-y-2">
+              <nav className="mt-6 space-y-1">
                 {roleNavigation[role].map((item) => (
                   <Link
                     key={`${item.href}-${item.label}`}
                     href={item.href}
-                    className="block rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                    className="block rounded-md px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted"
                   >
                     {item.label}
                   </Link>
@@ -82,8 +82,8 @@ export function AppHeader() {
           </Sheet>
 
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500">{roleLabel[role]}</p>
-            <h1 className="text-lg font-semibold text-[#08204A]">{title}</h1>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">{roleLabel[role]}</p>
+            <h1 className="font-heading text-lg font-semibold text-foreground">{title}</h1>
           </div>
         </div>
 
@@ -91,30 +91,18 @@ export function AppHeader() {
           <NotificationsPanel />
           <Link
             aria-label="Ver perfil"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex size-9 items-center justify-center rounded-md border border-border text-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             href={roleProfilePath[role]}
             title="Mi perfil"
           >
-            <svg
-              aria-hidden="true"
-              fill="none"
-              height="18"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-              width="18"
-            >
-              <path d="M20 21a8 8 0 0 0-16 0" />
-              <circle cx="12" cy="8" r="4" />
-            </svg>
+            <UserRound aria-hidden="true" className="size-[18px]" />
           </Link>
           <Link
-            className="text-sm text-[#0B57B7] hover:underline"
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             href="/login"
             onClick={() => clearAuthSession()}
           >
+            <LogOut aria-hidden="true" className="size-4" />
             Cerrar sesión
           </Link>
         </div>

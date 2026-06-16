@@ -1,17 +1,23 @@
 "use client";
 
 import { useConfiguracionCatalogos } from "@/hooks";
+import { PageHeader, PageSkeleton } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function ConfiguracionPage() {
   const { data, isLoading } = useConfiguracionCatalogos();
 
   if (isLoading) {
-    return <p className="text-sm text-slate-500">Cargando configuracion...</p>;
+    return <PageSkeleton blocks={4} />;
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
+    <div className="space-y-6">
+      <PageHeader
+        title="Configuración institucional"
+        description="Catálogos base que rigen el flujo de expedientes del Comité de Ética."
+      />
+      <div className="grid gap-6 md:grid-cols-2">
       <Card>
         <CardHeader>
           <CardTitle>Tipos de tramite</CardTitle>
@@ -63,6 +69,7 @@ export default function ConfiguracionPage() {
           ))}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

@@ -29,7 +29,7 @@ export default function MisExpedientesPage() {
               key: "codigo",
               header: "Codigo",
               cell: (row) => (
-                <Link className="text-[#0B57B7] hover:underline" href={`/investigador/expedientes/${row.id}`}>
+                <Link className="text-primary hover:underline" href={`/investigador/expedientes/${row.id}`}>
                   {row.codigo}
                 </Link>
               ),
@@ -42,12 +42,12 @@ export default function MisExpedientesPage() {
               header: "Acciones",
               cell: (row) => (
                 <div className="flex flex-col gap-1 text-sm">
-                  <Link href={`/investigador/expedientes/${row.id}`} className="text-[#0B57B7] hover:underline">
+                  <Link href={`/investigador/expedientes/${row.id}`} className="text-primary hover:underline">
                     Ver detalle
                   </Link>
                   <Link
                     href={`/investigador/expedientes/${row.id}/subsanacion`}
-                    className="text-[#0B57B7] hover:underline"
+                    className="text-primary hover:underline"
                   >
                     Subsanar
                   </Link>
