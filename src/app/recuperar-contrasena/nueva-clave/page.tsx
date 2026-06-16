@@ -38,7 +38,7 @@ export default function NuevaClavePage() {
     <AuthShell>
       <Card className="w-full max-w-md border-blue-100/70 bg-white/93 shadow-xl backdrop-blur-sm">
         <CardHeader className="space-y-2 text-center">
-          <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#0B57B7]">Actualizacion</p>
+          <p className="text-sm font-bold uppercase tracking-[0.2em] text-primary">Actualizacion</p>
           <CardTitle className="text-3xl font-bold text-[#08204A]">Nueva contraseña</CardTitle>
           <p className="text-sm font-medium text-slate-600">
             Define una nueva clave para completar la recuperacion (mock).

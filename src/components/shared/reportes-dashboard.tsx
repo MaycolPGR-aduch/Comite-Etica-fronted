@@ -95,7 +95,7 @@ export function ReportesDashboard({ scopeLabel }: ReportesDashboardProps) {
           </section>
 
           {hasMainError ? (
-            <Alert className="border-red-200 bg-red-50">
+            <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
               <AlertTitle>Error de carga</AlertTitle>
               <AlertDescription>
                 {(reportesEstado.error as Error | undefined)?.message ||
@@ -268,7 +268,7 @@ export function ReportesDashboard({ scopeLabel }: ReportesDashboardProps) {
           </div>
 
           {exportMutation.isError ? (
-            <Alert className="border-red-200 bg-red-50">
+            <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
               <AlertTitle>Error de exportación</AlertTitle>
               <AlertDescription>
                 {exportMutation.error instanceof Error
@@ -279,7 +279,7 @@ export function ReportesDashboard({ scopeLabel }: ReportesDashboardProps) {
           ) : null}
 
           {exportMutation.isSuccess ? (
-            <Alert className="border-green-200 bg-green-50">
+            <Alert className="border-emerald-200 bg-emerald-50 text-emerald-900">
               <AlertTitle>Exportación completada</AlertTitle>
               <AlertDescription>{exportMutation.data.mensaje}</AlertDescription>
             </Alert>

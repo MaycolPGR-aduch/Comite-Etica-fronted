@@ -74,7 +74,7 @@ export default function LoginPage() {
     <AuthShell>
         <Card className="w-full max-w-md min-h-[520px] border-blue-100/70 bg-white/92 shadow-xl backdrop-blur-sm">
           <CardHeader className="space-y-2 pt-8 text-center">
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#0B57B7]">
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-primary">
               Comite de Etica
             </p>
             <CardTitle className="text-3xl font-bold text-[#08204A]">Acceso al sistema</CardTitle>
@@ -133,7 +133,7 @@ export default function LoginPage() {
                   <p className="text-sm font-medium text-red-600">{errorMessage}</p>
                   <p className="text-xs text-slate-600">
                     Si aún no tienes cuenta, puedes{" "}
-                    <Link className="font-semibold text-[#0B57B7] hover:underline" href="/crear-usuario">
+                    <Link className="font-semibold text-primary hover:underline" href="/crear-usuario">
                       registrarte aquí
                     </Link>
                     .
@@ -155,7 +155,7 @@ export default function LoginPage() {
                   </Button>
                 </div>
                 <Link
-                  className="text-sm font-semibold text-[#0B57B7] hover:text-[#4C93EB] hover:underline"
+                  className="text-sm font-semibold text-primary hover:text-[#4C93EB] hover:underline"
                   href="/acerca-comite-etica"
                 >
                   Acerca del Comité de Ética

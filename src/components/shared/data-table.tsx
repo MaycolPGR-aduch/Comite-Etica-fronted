@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 import { ReactNode, useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/shared/empty-state";
+import { TableSkeleton } from "@/components/shared/table-skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -84,7 +85,7 @@ export function DataTable<TData>({
     Boolean(searchAccessor && searchTerm.trim()) || Boolean(statusAccessor && statusFilter !== "all");
 
   if (loading) {
-    return <p className="text-sm text-slate-500">Cargando informacion...</p>;
+    return <TableSkeleton columns={columns.length} />;
   }
 
   if (data.length === 0) {
@@ -94,10 +95,10 @@ export function DataTable<TData>({
   return (
     <div className="space-y-4">
       {searchAccessor || (statusAccessor && statusOptions.length > 0) ? (
-        <div className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-muted/40 p-3">
           {searchAccessor ? (
             <div className="relative min-w-[240px] flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 className="pl-9"
                 aria-label={searchLabel}
@@ -139,7 +140,7 @@ export function DataTable<TData>({
             </Button>
           ) : null}
 
-          <p className="text-xs text-slate-500 sm:ml-auto">
+          <p className="text-xs text-muted-foreground sm:ml-auto">
             Mostrando {filteredData.length} de {data.length}
           </p>
         </div>
@@ -155,7 +156,7 @@ export function DataTable<TData>({
           }
         />
       ) : (
-        <div className="rounded-lg border border-slate-200">
+        <div className="overflow-hidden rounded-lg border border-border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -168,7 +169,7 @@ export function DataTable<TData>({
             </TableHeader>
             <TableBody>
               {filteredData.map((row) => (
-                <TableRow key={getRowId(row)}>
+                <TableRow key={getRowId(row)} className="transition-colors hover:bg-muted/50">
                   {columns.map((column) => (
                     <TableCell key={column.key} className={column.className}>
                       {column.cell(row)}

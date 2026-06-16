@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CheckCircle2, CircleAlert, Download, ExternalLink } from "lucide-react";
 
 import { useDescargarDocumentoExpediente } from "@/hooks";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { Documento } from "@/types";
@@ -166,19 +167,19 @@ export function DocumentChecklist({
         {documents.map((document) => (
           <div
             key={document.id}
-            className="flex items-center justify-between rounded-md border border-slate-200 p-3"
+            className="flex items-center justify-between rounded-md border border-border p-3 transition-colors hover:bg-muted/40"
           >
             <div>
-              <p className="font-medium text-slate-800">{document.nombre}</p>
-              <p className="text-xs text-slate-500">{document.tipo}</p>
+              <p className="font-medium text-foreground">{document.nombre}</p>
+              <p className="text-xs text-muted-foreground">{document.tipo}</p>
             </div>
             <div className="flex flex-col items-end gap-2">
               {document.cargado ? (
-                <span className="inline-flex items-center gap-1 text-sm text-green-700">
+                <span className="inline-flex items-center gap-1 text-sm text-emerald-600">
                   <CheckCircle2 className="h-4 w-4" /> Cargado
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-sm text-amber-700">
+                <span className="inline-flex items-center gap-1 text-sm text-amber-600">
                   <CircleAlert className="h-4 w-4" /> Pendiente
                 </span>
               )}
@@ -186,32 +187,34 @@ export function DocumentChecklist({
               {document.cargado && enableFileActions ? (
                 canUseDownloadEndpoint(document.id) ? (
                   <div className="flex flex-col items-end gap-2">
-                    <div className="flex items-center gap-2 text-xs">
-                      <button
+                    <div className="flex items-center gap-2">
+                      <Button
                         type="button"
-                        className="inline-flex items-center gap-1 rounded border border-blue-200 px-2 py-1 text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        variant="outline"
+                        size="xs"
                         disabled={pendingDocumentId === document.id}
                         onClick={() => handleAction("preview", document)}
                       >
-                        <ExternalLink className="h-3.5 w-3.5" />
+                        <ExternalLink />
                         {pendingDocumentId === document.id ? "Abriendo..." : "Previsualizar"}
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
-                        className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        variant="outline"
+                        size="xs"
                         disabled={pendingDocumentId === document.id}
                         onClick={() => handleAction("download", document)}
                       >
-                        <Download className="h-3.5 w-3.5" />
+                        <Download />
                         {pendingDocumentId === document.id ? "Descargando..." : "Descargar"}
-                      </button>
+                      </Button>
                     </div>
                     {errorByDocumentId[document.id] ? (
-                      <p className="text-xs text-red-600">{errorByDocumentId[document.id]}</p>
+                      <p className="text-xs text-destructive">{errorByDocumentId[document.id]}</p>
                     ) : null}
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-500">Documento sin identificador válido para descarga.</p>
+                  <p className="text-xs text-muted-foreground">Documento sin identificador válido para descarga.</p>
                 )
               ) : null}
 
@@ -225,19 +228,20 @@ export function DocumentChecklist({
                       handleFileChange(document, file);
                     }}
                   />
-                  <button
+                  <Button
                     type="button"
-                    className="inline-flex items-center rounded border border-blue-200 px-2 py-1 text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    variant="outline"
+                    size="xs"
                     disabled={pendingUploadDocumentId === document.id}
                     onClick={() => handlePendingUpload(document)}
                   >
                     {pendingUploadDocumentId === document.id ? "Cargando..." : "Cargar documento"}
-                  </button>
+                  </Button>
                   {selectedFilesByDocumentId[document.id] ? (
-                    <p className="text-slate-500">{selectedFilesByDocumentId[document.id]?.name}</p>
+                    <p className="text-muted-foreground">{selectedFilesByDocumentId[document.id]?.name}</p>
                   ) : null}
                   {errorByDocumentId[document.id] ? (
-                    <p className="text-red-600">{errorByDocumentId[document.id]}</p>
+                    <p className="text-destructive">{errorByDocumentId[document.id]}</p>
                   ) : null}
                 </div>
               ) : null}

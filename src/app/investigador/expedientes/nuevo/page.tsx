@@ -18,13 +18,14 @@ import {
 } from "@/services/expedientes.service";
 import { getRequiredDocumentsByTipoTramite } from "@/lib/document-requirements";
 import type { Expediente } from "@/types";
-import { DocumentChecklist } from "@/components/shared";
+import { DocumentChecklist, PageHeader, useConfirm } from "@/components/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "@/components/ui/toast";
 
 const TIPO_TRAMITE_OPTIONS = [
   { value: "protocolo_estudiante", label: "Protocolo para estudiante" },
@@ -65,6 +66,7 @@ export default function NuevoExpedientePage() {
   const createDraftMutation = useCrearBorrador();
   const registrarDocumentoMutation = useRegistrarDocumentoExpediente();
   const enviarExpedienteMutation = useEnviarExpediente();
+  const confirm = useConfirm();
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -175,13 +177,23 @@ export default function NuevoExpedientePage() {
       return;
     }
 
+    const confirmed = await confirm({
+      title: "Enviar expediente",
+      description:
+        "El expediente se remitirá al Comité de Ética y dejará de ser un borrador editable. ¿Deseas enviarlo?",
+      confirmLabel: "Enviar expediente",
+    });
+    if (!confirmed) return;
+
     try {
       await enviarExpedienteMutation.mutateAsync(expedienteCreado.id);
       setStep(4);
+      toast.success("Expediente enviado", "El expediente fue remitido al Comité de Ética.");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "No se pudo enviar el expediente.";
       setWizardError(message);
+      toast.error("No se pudo enviar el expediente", message);
     }
   });
 
@@ -192,14 +204,12 @@ export default function NuevoExpedientePage() {
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        title="Nuevo expediente"
+        description="Crea el expediente como borrador, carga los documentos requeridos y envíalo al Comité."
+      />
       <Card>
-        <CardHeader>
-          <CardTitle>Nuevo expediente</CardTitle>
-          <p className="text-sm text-slate-500">
-            Flujo: crear expediente como borrador, cargar documentos y enviar.
-          </p>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <div className="mb-6 grid grid-cols-4 gap-2 text-xs font-medium">
             {["Datos", "Documentos", "Revision", "Envio"].map((label, index) => {
               const current = index + 1;
@@ -207,8 +217,10 @@ export default function NuevoExpedientePage() {
               return (
                 <div
                   key={label}
-                  className={`rounded-md px-3 py-2 text-center ${
-                    active ? "bg-blue-100 text-[#08204A]" : "bg-slate-100 text-slate-500"
+                  className={`rounded-md px-3 py-2 text-center transition-colors ${
+                    active
+                      ? "bg-secondary text-secondary-foreground"
+                      : "bg-muted text-muted-foreground"
                   }`}
                 >
                   {current}. {label}
@@ -218,7 +230,7 @@ export default function NuevoExpedientePage() {
           </div>
 
           {wizardError ? (
-            <Alert className="mb-4 border-red-200 bg-red-50">
+            <Alert className="mb-4 border-destructive/30 bg-destructive/5 text-destructive">
               <AlertTitle>Error en el flujo</AlertTitle>
               <AlertDescription>{wizardError}</AlertDescription>
             </Alert>
@@ -231,7 +243,7 @@ export default function NuevoExpedientePage() {
                   <Label htmlFor="titulo">Titulo del protocolo</Label>
                   <Input id="titulo" {...form.register("titulo")} />
                   {form.formState.errors.titulo ? (
-                    <p className="text-xs text-red-600">{form.formState.errors.titulo.message}</p>
+                    <p className="text-xs text-destructive">{form.formState.errors.titulo.message}</p>
                   ) : null}
                 </div>
                 <div className="space-y-2">
@@ -249,7 +261,7 @@ export default function NuevoExpedientePage() {
                     ))}
                   </select>
                   {tramiteLocked ? (
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                       Tipo de tramite bloqueado para mantener consistencia tras crear el borrador.
                     </p>
                   ) : null}
@@ -284,7 +296,7 @@ export default function NuevoExpedientePage() {
                   <Label htmlFor="resumen">Resumen (UI)</Label>
                   <Textarea id="resumen" rows={5} {...form.register("resumen")} />
                   {form.formState.errors.resumen ? (
-                    <p className="text-xs text-red-600">{form.formState.errors.resumen.message}</p>
+                    <p className="text-xs text-destructive">{form.formState.errors.resumen.message}</p>
                   ) : null}
                 </div>
               </div>
@@ -298,7 +310,7 @@ export default function NuevoExpedientePage() {
                     Seleccione un archivo por documento requerido para registrarlo en backend.
                   </AlertDescription>
                 </Alert>
-                <Alert className="border-blue-200 bg-blue-50">
+                <Alert className="border-primary/30 bg-secondary text-secondary-foreground">
                   <AlertTitle>Formatos y restricciones admitidas</AlertTitle>
                   <AlertDescription>
                     Formatos permitidos: {DOCUMENT_UPLOAD_ACCEPTED_EXTENSIONS.join(", ")}.
@@ -338,13 +350,13 @@ export default function NuevoExpedientePage() {
                           setRegisteredDocs((current) => ({ ...current, [doc.key]: false }));
                         }}
                       />
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-muted-foreground">
                         {selectedFiles[doc.key]
                           ? `Archivo: ${selectedFiles[doc.key]?.name}`
                           : "Sin archivo seleccionado"}
                       </p>
                       {fileErrors[doc.key] ? (
-                        <p className="text-xs text-red-600">{fileErrors[doc.key]}</p>
+                        <p className="text-xs text-destructive">{fileErrors[doc.key]}</p>
                       ) : null}
                     </div>
                   ))}
@@ -404,7 +416,7 @@ export default function NuevoExpedientePage() {
             ) : null}
 
             {step === 4 ? (
-              <Alert className="border-green-200 bg-green-50">
+              <Alert className="border-emerald-200 bg-emerald-50 text-emerald-900">
                 <AlertTitle>Expediente enviado</AlertTitle>
                 <AlertDescription>
                   El expediente fue creado, se cargaron documentos y quedó enviado para revisión.

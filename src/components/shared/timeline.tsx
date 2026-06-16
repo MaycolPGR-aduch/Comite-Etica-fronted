@@ -12,13 +12,13 @@ export function Timeline({ events }: TimelineProps) {
         <CardTitle>Actividad reciente</CardTitle>
       </CardHeader>
       <CardContent>
-        <ol className="relative border-s border-blue-200 pl-6">
+        <ol className="relative border-s border-border pl-6">
           {events.map((event) => (
-            <li key={event.id} className="mb-6">
-              <span className="absolute -start-1.5 mt-1.5 h-3 w-3 rounded-full bg-blue-500" />
-              <h4 className="font-medium text-[#172033]">{event.titulo}</h4>
-              <p className="text-sm text-slate-600">{event.descripcion}</p>
-              <p className="text-xs text-slate-500">
+            <li key={event.id} className="mb-6 last:mb-0">
+              <span className="absolute -start-1.5 mt-1.5 size-3 rounded-full bg-primary ring-4 ring-primary/10" />
+              <h4 className="font-medium text-foreground">{event.titulo}</h4>
+              <p className="text-sm text-muted-foreground">{event.descripcion}</p>
+              <p className="text-xs text-muted-foreground/80">
                 {new Date(event.fecha).toLocaleString()} - {event.actor}
               </p>
             </li>

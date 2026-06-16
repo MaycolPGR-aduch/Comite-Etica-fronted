@@ -15,6 +15,7 @@ import { getAuthToken } from "@/services/auth-session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 
 type Filter = "all" | "unread";
@@ -71,7 +72,7 @@ export function NotificationsPanel() {
         <Button variant="outline" size="icon" className="relative" aria-label="Abrir notificaciones">
           <Bell className="h-4 w-4" />
           {hasAuthToken && unreadCount && unreadCount.sinLeer > 0 ? (
-            <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-[#0B57B7] px-1 text-[10px] font-semibold text-white">
+            <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
               {unreadCount.sinLeer > 99 ? "99+" : unreadCount.sinLeer}
             </span>
           ) : null}
@@ -84,11 +85,13 @@ export function NotificationsPanel() {
 
         <div className="mt-4 space-y-4">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex rounded-md border border-slate-200 p-1">
+            <div className="flex rounded-md border border-border p-1">
               <button
                 type="button"
-                className={`rounded px-3 py-1 text-xs ${
-                  filter === "all" ? "bg-slate-100 font-medium text-slate-900" : "text-slate-600"
+                className={`rounded px-3 py-1 text-xs transition-colors ${
+                  filter === "all"
+                    ? "bg-secondary font-medium text-secondary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
                 onClick={() => setFilter("all")}
               >
@@ -96,10 +99,10 @@ export function NotificationsPanel() {
               </button>
               <button
                 type="button"
-                className={`rounded px-3 py-1 text-xs ${
+                className={`rounded px-3 py-1 text-xs transition-colors ${
                   filter === "unread"
-                    ? "bg-slate-100 font-medium text-slate-900"
-                    : "text-slate-600"
+                    ? "bg-secondary font-medium text-secondary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
                 onClick={() => setFilter("unread")}
               >
@@ -117,14 +120,18 @@ export function NotificationsPanel() {
             </Button>
           </div>
 
-          <div className="max-h-72 space-y-2 overflow-auto rounded-md border border-slate-200 p-3">
+          <div className="max-h-72 space-y-2 overflow-auto rounded-md border border-border p-3">
             {isLoading ? (
-              <p className="text-sm text-slate-500">Cargando notificaciones...</p>
+              <div className="space-y-2">
+                <Skeleton className="h-14 w-full" />
+                <Skeleton className="h-14 w-full opacity-70" />
+                <Skeleton className="h-14 w-full opacity-50" />
+              </div>
             ) : null}
 
             {isError ? (
               <div className="space-y-2">
-                <p className="text-sm text-red-600">
+                <p className="text-sm text-destructive">
                   {error instanceof Error ? error.message : "No se pudieron cargar las notificaciones."}
                 </p>
                 <Button size="sm" variant="outline" onClick={() => refetch()}>
@@ -134,13 +141,13 @@ export function NotificationsPanel() {
             ) : null}
 
             {!hasAuthToken ? (
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-muted-foreground">
                 Sesión no autenticada para notificaciones. Inicie sesión nuevamente.
               </p>
             ) : null}
 
             {!isLoading && !isError && orderedNotifications.length === 0 ? (
-              <p className="text-sm text-slate-500">No hay notificaciones para este filtro.</p>
+              <p className="text-sm text-muted-foreground">No hay notificaciones para este filtro.</p>
             ) : null}
 
             {!isLoading && !isError
@@ -153,29 +160,29 @@ export function NotificationsPanel() {
                         markMutation.mutate({ id: item.id, leida: true });
                       }
                     }}
-                    className={`w-full rounded-md border p-3 text-left text-sm transition ${
+                    className={`w-full rounded-md border p-3 text-left text-sm transition-colors ${
                       item.leida
-                        ? "border-slate-200 bg-white text-slate-600"
-                        : "border-blue-200 bg-blue-50 text-[#08204A]"
+                        ? "border-border bg-card text-muted-foreground hover:bg-muted/50"
+                        : "border-primary/30 bg-secondary text-secondary-foreground"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="font-medium">{item.titulo}</p>
-                      <span className="text-xs text-slate-500">
+                      <span className="text-xs text-muted-foreground">
                         {new Date(item.createdAt).toLocaleDateString()}
                       </span>
                     </div>
                     <p className="mt-1 text-xs">{item.mensaje}</p>
                     {item.expedienteId ? (
-                      <p className="mt-1 text-[11px] text-slate-500">Expediente #{item.expedienteId}</p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">Expediente #{item.expedienteId}</p>
                     ) : null}
                   </button>
                 ))
               : null}
           </div>
 
-          <form onSubmit={handleCreate} className="space-y-2 rounded-md border border-slate-200 p-3">
-            <p className="text-sm font-medium text-[#08204A]">Crear notificación</p>
+          <form onSubmit={handleCreate} className="space-y-2 rounded-md border border-border p-3">
+            <p className="text-sm font-medium text-foreground">Crear notificación</p>
             <Input
               value={titulo}
               onChange={(event) => setTitulo(event.target.value)}
@@ -207,14 +214,14 @@ export function NotificationsPanel() {
               {createMutation.isPending ? "Creando..." : "Crear"}
             </Button>
             {createMutation.isError ? (
-              <p className="text-xs text-red-600">
+              <p className="text-xs text-destructive">
                 {createMutation.error instanceof Error
                   ? createMutation.error.message
                   : "No se pudo crear la notificación."}
               </p>
             ) : null}
             {createMutation.isSuccess ? (
-              <p className="text-xs text-emerald-700">Notificación creada correctamente.</p>
+              <p className="text-xs text-emerald-600">Notificación creada correctamente.</p>
             ) : null}
           </form>
         </div>

@@ -38,10 +38,10 @@ export default function DashboardCoordinadorPage() {
                 header: "Acciones",
                 cell: (row) => (
                   <div className="flex flex-col gap-1 text-sm">
-                    <Link className="text-[#0B57B7] hover:underline" href={`/coordinador/asignacion/${row.id}`}>
+                    <Link className="text-primary hover:underline" href={`/coordinador/asignacion/${row.id}`}>
                       Asignar evaluadores
                     </Link>
-                    <Link className="text-[#0B57B7] hover:underline" href={`/coordinador/consolidacion/${row.id}`}>
+                    <Link className="text-primary hover:underline" href={`/coordinador/consolidacion/${row.id}`}>
                       Consolidar dictamen
                     </Link>
                   </div>

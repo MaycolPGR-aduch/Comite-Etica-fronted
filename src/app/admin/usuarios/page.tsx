@@ -9,8 +9,11 @@ import {
   useUsers,
 } from "@/hooks";
 import type { Role } from "@/types";
+import { PageHeader, TableSkeleton, useConfirm } from "@/components/shared";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "@/components/ui/toast";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +51,7 @@ export default function UsuariosAdminPage() {
   const { data: users = [], isLoading, error } = useUsers();
   const updateUserMutation = useUpdateUser();
   const deactivateUserMutation = useDeactivateUser();
+  const confirm = useConfirm();
 
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -94,19 +98,23 @@ export default function UsuariosAdminPage() {
         },
       });
       closeEditDialog();
+      toast.success("Usuario actualizado", "Los cambios se guardaron correctamente.");
     } catch (saveError) {
-      setUiError(
-        saveError instanceof Error
-          ? saveError.message
-          : "No se pudo actualizar el usuario.",
-      );
+      const message =
+        saveError instanceof Error ? saveError.message : "No se pudo actualizar el usuario.";
+      setUiError(message);
+      toast.error("No se pudo actualizar el usuario", message);
     }
   };
 
   const handleDeactivate = async (userId: string) => {
-    const shouldDeactivate = window.confirm(
-      "Se desactivara este usuario. ¿Deseas continuar?",
-    );
+    const shouldDeactivate = await confirm({
+      title: "Desactivar usuario",
+      description:
+        "El usuario quedará inactivo y no podrá acceder al sistema. ¿Deseas continuar?",
+      confirmLabel: "Desactivar",
+      variant: "destructive",
+    });
 
     if (!shouldDeactivate) return;
 
@@ -114,39 +122,39 @@ export default function UsuariosAdminPage() {
 
     try {
       await deactivateUserMutation.mutateAsync(userId);
+      toast.success("Usuario desactivado", "El usuario ya no podrá acceder al sistema.");
     } catch (deactivateError) {
-      setUiError(
+      const message =
         deactivateError instanceof Error
           ? deactivateError.message
-          : "No se pudo desactivar el usuario.",
-      );
+          : "No se pudo desactivar el usuario.";
+      setUiError(message);
+      toast.error("No se pudo desactivar el usuario", message);
     }
   };
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        title="Gestión de usuarios"
+        description="Listar, ver detalle, actualizar y desactivar usuarios del sistema."
+      />
       <Card>
-        <CardHeader>
-          <CardTitle>Gestion de usuarios</CardTitle>
-          <p className="text-sm text-slate-500">
-            Modulo conectado a backend para listar, ver detalle, actualizar y desactivar usuarios.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-6">
           {uiError ? (
-            <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
               {uiError}
             </p>
           ) : null}
 
           {error ? (
-            <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
               {error instanceof Error ? error.message : "No se pudo cargar la lista de usuarios."}
             </p>
           ) : null}
 
           {isLoading ? (
-            <p className="text-sm text-slate-500">Cargando usuarios...</p>
+            <TableSkeleton columns={5} />
           ) : (
             <Table>
               <TableHeader>
@@ -170,7 +178,7 @@ export default function UsuariosAdminPage() {
                           Activo
                         </span>
                       ) : (
-                        <span className="rounded-full bg-slate-200 px-2 py-1 text-xs font-medium text-slate-700">
+                        <span className="rounded-full bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
                           Inactivo
                         </span>
                       )}
@@ -222,9 +230,13 @@ export default function UsuariosAdminPage() {
           </DialogHeader>
 
           {loadingSelectedUser ? (
-            <p className="text-sm text-slate-500">Cargando datos del usuario...</p>
+            <div className="space-y-3">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+            </div>
           ) : selectedUserError ? (
-            <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
               {selectedUserError instanceof Error
                 ? selectedUserError.message
                 : "No se pudo cargar el detalle del usuario."}
@@ -232,8 +244,8 @@ export default function UsuariosAdminPage() {
           ) : (
             <div className="space-y-4">
               <div className="space-y-1">
-                <p className="text-sm font-medium text-slate-700">{selectedUserName}</p>
-                <p className="text-xs text-slate-500">{selectedUser?.correo}</p>
+                <p className="text-sm font-medium text-foreground">{selectedUserName}</p>
+                <p className="text-xs text-muted-foreground">{selectedUser?.correo}</p>
               </div>
 
               <div className="space-y-2">

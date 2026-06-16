@@ -9,10 +9,11 @@ import {
   useEvaluaciones,
   useEvaluadoresDisponibles,
 } from "@/hooks";
-import { EmptyState } from "@/components/shared";
+import { EmptyState, PageHeader, PageSkeleton, useConfirm } from "@/components/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { toast } from "@/components/ui/toast";
 
 export default function AsignacionEvaluadoresPage() {
   const params = useParams<{ id: string }>();
@@ -23,6 +24,7 @@ export default function AsignacionEvaluadoresPage() {
   const { data: evaluadores = [], isLoading: loadingEvaluadores } = useEvaluadoresDisponibles();
   const { data: evaluaciones = [], isLoading: loadingEvaluaciones } = useEvaluaciones();
   const asignacionMutation = useAsignarEvaluadores();
+  const confirm = useConfirm();
 
   const expedienteActualId = expediente?.id ?? "";
 
@@ -51,14 +53,30 @@ export default function AsignacionEvaluadoresPage() {
   const submit = async () => {
     if (!canSubmit) return;
 
-    await asignacionMutation.mutateAsync({
-      expedienteId,
-      evaluadorIds: selectedEvaluadorIds,
+    const confirmed = await confirm({
+      title: "Asignar evaluadores",
+      description: `Se asignarán ${selectedEvaluadorIds.length} evaluador(es) a este expediente. ¿Deseas continuar?`,
+      confirmLabel: "Asignar",
     });
+    if (!confirmed) return;
+
+    try {
+      const result = await asignacionMutation.mutateAsync({
+        expedienteId,
+        evaluadorIds: selectedEvaluadorIds,
+      });
+      setSelectedEvaluadorIds([]);
+      toast.success("Evaluadores asignados", result.message);
+    } catch (error) {
+      toast.error(
+        "No se pudo asignar evaluadores",
+        error instanceof Error ? error.message : undefined,
+      );
+    }
   };
 
   if (loadingExpediente || loadingEvaluadores || loadingEvaluaciones) {
-    return <p className="text-sm text-slate-500">Cargando datos de asignacion...</p>;
+    return <PageSkeleton blocks={2} />;
   }
 
   if (!expediente) {
@@ -72,35 +90,25 @@ export default function AsignacionEvaluadoresPage() {
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        title="Asignación de evaluadores"
+        description="Seleccione evaluadores para la asignación manual del expediente."
+      />
       <Card>
-        <CardHeader>
-          <CardTitle>Asignacion de evaluadores</CardTitle>
-          <p className="text-sm text-slate-500">
-            Seleccione evaluadores para asignación manual del expediente.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <p className="mb-4 text-sm text-slate-600">
-            Expediente: <strong>{expediente.codigo}</strong> - {expediente.titulo}
+        <CardContent className="pt-6">
+          <p className="mb-4 text-sm text-muted-foreground">
+            Expediente: <strong className="text-foreground">{expediente.codigo}</strong> - {expediente.titulo}
           </p>
 
-          <div className="rounded-md border border-blue-200 bg-blue-50 p-4 text-sm text-slate-700">
-            <p className="font-medium text-[#08204A]">Modo actual: Asignacion manual</p>
-            <p>
-              El frontend utiliza <code>POST /evaluacion/expediente/{"{id}"}/asignar</code> para
-              asignar evaluadores por <code>evaluador_id</code>.
-            </p>
-          </div>
-
-          <div className="mt-4 space-y-3 rounded-md border border-slate-200 p-4">
-            <p className="text-sm text-slate-700">
+          <div className="space-y-3 rounded-md border border-border p-4">
+            <p className="text-sm text-foreground">
               Evaluaciones asignadas: <strong>{asignacionesActuales.length}</strong> / 2
             </p>
 
             {asignacionesActuales.length > 0 ? (
               <div className="space-y-2">
                 {asignacionesActuales.map((asignacion) => (
-                  <div key={asignacion.id} className="rounded-md border border-slate-200 p-3 text-sm">
+                  <div key={asignacion.id} className="rounded-md border border-border p-3 text-sm">
                     <p>
                       <strong>Evaluacion #{asignacion.id}</strong>
                     </p>
@@ -113,16 +121,16 @@ export default function AsignacionEvaluadoresPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-muted-foreground">
                 Aun no hay evaluadores asignados para este expediente.
               </p>
             )}
 
             {faltantes <= 0 ? (
-              <p className="text-sm text-emerald-700">El expediente ya tiene el maximo de 2 evaluadores.</p>
+              <p className="text-sm text-emerald-600">El expediente ya tiene el maximo de 2 evaluadores.</p>
             ) : (
               <div className="space-y-2">
-                <p className="text-sm text-amber-700">
+                <p className="text-sm text-amber-600">
                   Seleccione {faltantes} evaluador(es) para completar la asignación.
                 </p>
                 {canSelect ? (
@@ -135,7 +143,7 @@ export default function AsignacionEvaluadoresPage() {
                       return (
                         <label
                           key={evaluador.id}
-                          className="flex items-center gap-3 rounded-md border border-slate-200 p-3 text-sm"
+                          className="flex items-center gap-3 rounded-md border border-border p-3 text-sm transition-colors hover:bg-muted/40"
                         >
                           <input
                             checked={checked}
@@ -155,15 +163,15 @@ export default function AsignacionEvaluadoresPage() {
                             }}
                           />
                           <span>{evaluador.nombre}</span>
-                          <span className="text-slate-500">({evaluador.correo})</span>
+                          <span className="text-muted-foreground">({evaluador.correo})</span>
                         </label>
                       );
                     })}
                   </div>
                 ) : (
-                  <p className="text-sm text-red-600">No hay evaluadores disponibles para asignar.</p>
+                  <p className="text-sm text-destructive">No hay evaluadores disponibles para asignar.</p>
                 )}
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted-foreground">
                   Seleccionados: {selectedEvaluadorIds.length} / {faltantes}
                 </p>
               </div>
@@ -175,14 +183,14 @@ export default function AsignacionEvaluadoresPage() {
           </Button>
 
           {asignacionMutation.isError ? (
-            <Alert className="mt-4 border-red-200 bg-red-50">
+            <Alert className="mt-4 border-destructive/30 bg-destructive/5 text-destructive">
               <AlertTitle>Error de validacion</AlertTitle>
               <AlertDescription>{asignacionMutation.error.message}</AlertDescription>
             </Alert>
           ) : null}
 
           {asignacionMutation.isSuccess ? (
-            <Alert className="mt-4 border-green-200 bg-green-50">
+            <Alert className="mt-4 border-emerald-200 bg-emerald-50 text-emerald-900">
               <AlertTitle>Asignacion exitosa</AlertTitle>
               <AlertDescription>{asignacionMutation.data.message}</AlertDescription>
             </Alert>
