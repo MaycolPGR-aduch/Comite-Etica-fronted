@@ -103,7 +103,7 @@ export default function SubsanacionPage() {
           <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
             Carga de nueva version documental (mock):
             <ul className="mt-2 list-disc pl-6">
-              <li>Protocolo_v2.pdf</li>
+              <li>Proyecto_v2.pdf</li>
               <li>Consentimiento_v2.pdf</li>
             </ul>
           </div>

@@ -14,7 +14,14 @@ import {
 import { getAuthToken } from "@/services/auth-session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -81,6 +88,7 @@ export function NotificationsPanel() {
       <SheetContent side="right" className="w-full sm:max-w-md">
         <SheetHeader>
           <SheetTitle>Notificaciones</SheetTitle>
+          <SheetDescription>Revisa, filtra y gestiona tus notificaciones.</SheetDescription>
         </SheetHeader>
 
         <div className="mt-4 space-y-4">

@@ -24,6 +24,7 @@ export default function MisExpedientesPage() {
           searchPlaceholder="Buscar por código, título, tipo o facultad"
           statusAccessor={(row) => row.estado}
           statusOptions={[...EXPEDIENTE_STATUSES]}
+          dateAccessor={(row) => row.fechaRegistro}
           columns={[
             {
               key: "codigo",
@@ -37,6 +38,11 @@ export default function MisExpedientesPage() {
             { key: "titulo", header: "Titulo", cell: (row) => row.titulo },
             { key: "tipo", header: "Tipo", cell: (row) => row.tipoTramite },
             { key: "estado", header: "Estado", cell: (row) => <StatusBadge status={row.estado} /> },
+            {
+              key: "fecha",
+              header: "Fecha de creación",
+              cell: (row) => new Date(row.fechaRegistro).toLocaleDateString(),
+            },
             {
               key: "acciones",
               header: "Acciones",

@@ -8,7 +8,7 @@ export const DOCUMENTOS_POR_TIPO_TRAMITE = {
   protocolo_estudiante: [
     {
       key: "protocolo",
-      label: "Protocolo de investigacion",
+      label: "Proyecto de investigacion",
       tipoDocumento: "protocolo",
     },
     {
@@ -35,7 +35,7 @@ export const DOCUMENTOS_POR_TIPO_TRAMITE = {
   protocolo_tesista: [
     {
       key: "protocolo",
-      label: "Protocolo o proyecto de investigacion",
+      label: "Proyecto de investigacion",
       tipoDocumento: "protocolo",
     },
     {

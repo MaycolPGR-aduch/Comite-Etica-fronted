@@ -2,9 +2,10 @@ import { ReactNode } from "react";
 
 interface AuthShellProps {
   children: ReactNode;
+  header?: ReactNode;
 }
 
-export function AuthShell({ children }: AuthShellProps) {
+export function AuthShell({ children, header }: AuthShellProps) {
   return (
     <div className="relative z-0 flex min-h-screen flex-col overflow-hidden">
       <div
@@ -12,6 +13,12 @@ export function AuthShell({ children }: AuthShellProps) {
         style={{ backgroundImage: "url('/universidad-fondo.png')" }}
       />
       <div className="absolute inset-0 z-10 bg-gradient-to-b from-[#08204A]/35 via-[#08204A]/20 to-[#08204A]/45" />
+
+      {header ? (
+        <header className="relative z-20 border-b border-blue-100 bg-white/95 backdrop-blur-sm">
+          {header}
+        </header>
+      ) : null}
 
       <main className="relative z-20 flex flex-1 items-center justify-center px-4 py-10">{children}</main>
 

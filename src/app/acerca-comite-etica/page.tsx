@@ -1,56 +1,66 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Clock, Mail, MapPin, Phone } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+const objetivos = [
+  "Promover la integridad científica y las buenas prácticas de investigación.",
+  "Garantizar la confiabilidad ética de los proyectos de investigación desarrollados en la UCH.",
+  "Proteger los derechos, la seguridad y el bienestar de las personas involucradas en investigaciones.",
+  "Fortalecer la responsabilidad ética en la comunidad universitaria.",
+  "Asegurar el cumplimiento de los principios éticos y la normativa vigente en investigación.",
+];
+
 const funcionesPrincipales = [
   {
-    titulo: "Registro y trazabilidad de expedientes",
+    titulo: "Orientación ética",
     descripcion:
-      "Centraliza la documentación de protocolos éticos y mantiene historial de acciones, observaciones y decisiones en un flujo auditable.",
+      "Brinda orientación ética a estudiantes, docentes e investigadores de la comunidad universitaria.",
   },
   {
-    titulo: "Revisión administrativa y evaluación ética",
+    titulo: "Buenas prácticas de investigación",
     descripcion:
-      "Ordena la admisibilidad documental, la asignación de evaluadores y la revisión técnica en etapas claras para reducir reprocesos.",
+      "Promueve la integridad, la transparencia y las buenas prácticas en la investigación universitaria.",
   },
   {
-    titulo: "Subsanación, consolidación y dictamen",
+    titulo: "Evaluación y supervisión",
     descripcion:
-      "Permite responder observaciones, comparar evaluaciones y emitir dictámenes con mayor consistencia y transparencia institucional.",
+      "Evalúa y supervisa los proyectos de investigación, verificando el cumplimiento de los principios éticos y la normativa vigente.",
   },
 ];
 
 const etapas = [
   "Registro del expediente por el investigador",
   "Validación administrativa por Secretaría Técnica",
-  "Asignación de evaluadores por Coordinación",
-  "Evaluación ética y emisión de recomendaciones",
-  "Consolidación y comunicación de dictamen final",
+  "Asignación de evaluador por Coordinación",
+  "Evaluación ética y emisión del resultado",
+  "Comunicación del dictamen final",
+];
+
+const contacto = [
+  { icon: MapPin, label: "Tercer piso del Pabellón A · Campus UCH" },
+  { icon: Clock, label: "Lunes a viernes: 8:00 a. m. – 5:00 p. m." },
+  { icon: Phone, label: "500 3100 · Anexo 1273  ·  +51 913 596 223" },
+  { icon: Mail, label: "comite_etica@uch.edu.pe" },
 ];
 
 const faqs = [
   {
     pregunta: "¿Necesito una cuenta para revisar esta información pública?",
     respuesta:
-      "No. Esta sección está disponible sin autenticación para orientar a investigadores y usuarios sobre el funcionamiento general del sistema.",
+      "No. Esta sección está disponible sin autenticación para orientar a investigadores y usuarios sobre el funcionamiento general del Comité y del sistema.",
   },
   {
-    pregunta: "¿Puedo enviar protocolos desde esta sección informativa?",
+    pregunta: "¿Cómo envío mi proyecto al Comité de Ética?",
     respuesta:
-      "No directamente. Para registrar expedientes debe ingresar por la pantalla de acceso con su rol correspondiente.",
+      "El envío se realiza a través de este sistema. Ingrese con su cuenta de investigador y registre su expediente en “Nuevo expediente”. Revise antes la Guía de envío y requisitos.",
   },
   {
     pregunta: "¿Qué pasa si mi expediente tiene observaciones?",
     respuesta:
-      "El sistema habilita una etapa de subsanación donde podrá responder observaciones y adjuntar nuevas versiones documentales antes de la reevaluación.",
-  },
-  {
-    pregunta: "¿La evaluación se basa en criterios estandarizados?",
-    respuesta:
-      "Sí. El flujo está diseñado para registrar criterios por sección, nivel de riesgo, recomendaciones y consolidación final con evidencia trazable.",
+      "El sistema habilita una etapa de subsanación donde podrá responder las observaciones y adjuntar nuevas versiones documentales antes de la reevaluación.",
   },
   {
     pregunta: "¿Puedo descargar el dictamen final?",
@@ -68,9 +78,14 @@ export default function AcercaComiteEticaPage() {
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">Comité de Ética</p>
             <h1 className="text-lg font-bold text-[#08204A]">Portal informativo</h1>
           </div>
-          <Button asChild className="font-semibold" size="sm">
-            <Link href="/login">Ir a inicio de sesión</Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button asChild className="font-semibold" size="sm" variant="outline">
+              <Link href="/guia">Guía de envío</Link>
+            </Button>
+            <Button asChild className="font-semibold" size="sm">
+              <Link href="/login">Ir a inicio de sesión</Link>
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -78,26 +93,24 @@ export default function AcercaComiteEticaPage() {
         <section className="grid gap-6 lg:grid-cols-2">
           <Card className="border-blue-100 shadow-sm">
             <CardHeader className="space-y-3">
-              <p className="text-sm font-bold uppercase tracking-[0.2em] text-primary">Acerca del sistema</p>
+              <p className="text-sm font-bold uppercase tracking-[0.2em] text-primary">Acerca del Comité</p>
               <CardTitle className="text-3xl font-bold leading-tight text-[#08204A]">
-                Gestión y evaluación de protocolos del Comité de Ética
+                Comité de Ética de la Universidad de Ciencias y Humanidades
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-[15px] leading-7 text-slate-700">
               <p>
-                Este sistema web organiza el ciclo completo de evaluación ética universitaria para fortalecer la transparencia,
-                la trazabilidad y la calidad de las decisiones institucionales.
-              </p>
-              <p>
-                Integra en un solo entorno a investigadores, Secretaría Técnica, Coordinación, evaluadores y administración,
-                reduciendo tiempos de respuesta y mejorando el control del proceso.
+                El Comité de Ética es el órgano responsable de evaluar y supervisar los proyectos de
+                investigación desarrollados en la Universidad de Ciencias y Humanidades (UCH), asegurando
+                el cumplimiento de los principios éticos, la normativa vigente y el respeto a la dignidad
+                humana.
               </p>
               <div className="flex flex-wrap gap-3 pt-2">
                 <Button asChild className="font-semibold" variant="secondary">
                   <Link href="/login">Acceder al sistema</Link>
                 </Button>
                 <Button asChild className="font-semibold" variant="outline">
-                  <Link href="/recuperar-contrasena">Recuperar contraseña</Link>
+                  <Link href="/guia">Guía de envío y requisitos</Link>
                 </Button>
               </div>
             </CardContent>
@@ -120,6 +133,28 @@ export default function AcercaComiteEticaPage() {
           </Card>
         </section>
 
+        <section className="grid gap-6 lg:grid-cols-2">
+          <Card className="border-blue-100 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-2xl font-bold text-[#08204A]">Misión</CardTitle>
+            </CardHeader>
+            <CardContent className="text-[15px] leading-7 text-slate-700">
+              Acompañar a nuestros estudiantes reforzando permanentemente su motivación y desempeño
+              académico, así como la orientación hacia la investigación y el desarrollo de su
+              autoconocimiento para un adecuado desenvolvimiento profesional.
+            </CardContent>
+          </Card>
+          <Card className="border-blue-100 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-2xl font-bold text-[#08204A]">Visión</CardTitle>
+            </CardHeader>
+            <CardContent className="text-[15px] leading-7 text-slate-700">
+              Contar con profesionales egresados preparados para enfrentar los retos que su carrera y la
+              sociedad le exigen, favoreciendo de esta manera al avance de nuestro país y la humanidad.
+            </CardContent>
+          </Card>
+        </section>
+
         <section className="grid gap-4 md:grid-cols-3">
           {funcionesPrincipales.map((funcion) => (
             <Card key={funcion.titulo} className="border-blue-100 shadow-sm">
@@ -134,23 +169,53 @@ export default function AcercaComiteEticaPage() {
         <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <Card className="border-blue-100 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-2xl font-bold text-[#08204A]">Objetivo general del sistema</CardTitle>
+              <CardTitle className="text-2xl font-bold text-[#08204A]">Objetivos del Comité</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 text-[15px] leading-7 text-slate-700">
-              <p>
-                Proporcionar una plataforma institucional para gestionar de forma eficiente, ordenada y verificable el
-                proceso de revisión de protocolos de investigación, garantizando cumplimiento ético y soporte para la toma
-                de decisiones del Comité.
-              </p>
-              <p className="font-semibold text-[#08204A]">Flujo resumido</p>
-              <ul className="space-y-2">
+            <CardContent>
+              <ul className="space-y-2 text-[15px] leading-7 text-slate-700">
+                {objetivos.map((objetivo) => (
+                  <li key={objetivo} className="flex items-start gap-2">
+                    <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-primary" />
+                    <span>{objetivo}</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+
+          <Card className="border-blue-100 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-2xl font-bold text-[#08204A]">Flujo del sistema</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2 text-[15px] leading-7 text-slate-700">
                 {etapas.map((etapa) => (
                   <li key={etapa} className="flex items-start gap-2">
-                    <ChevronRight className="mt-0.5 h-4 w-4 text-primary" />
+                    <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-primary" />
                     <span>{etapa}</span>
                   </li>
                 ))}
               </ul>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+          <Card className="border-blue-100 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-2xl font-bold text-[#08204A]">Contacto</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-[15px] leading-7 text-slate-700">
+              {contacto.map((item) => (
+                <div key={item.label} className="flex items-start gap-3">
+                  <item.icon className="mt-1 h-4 w-4 shrink-0 text-primary" />
+                  <span>{item.label}</span>
+                </div>
+              ))}
+              <p className="pt-2 text-sm text-muted-foreground">
+                Respaldo normativo: Resolución de Rectorado N.º 014-2025-R-UCH, emitida el 25 de febrero
+                de 2025, con vigencia del 01 de marzo de 2024 al 31 de diciembre de 2026.
+              </p>
             </CardContent>
           </Card>
 

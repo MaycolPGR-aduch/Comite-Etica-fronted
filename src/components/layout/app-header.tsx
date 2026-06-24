@@ -1,16 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { LogOut, Menu, UserRound } from "lucide-react";
+import { LogOut, Menu, Moon, Sun, UserRound } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 import { roleLabel, roleNavigation, roleProfilePath, resolveRoleFromPath } from "@/lib/navigation";
 import { clearAuthSession } from "@/services/auth-session";
 import { NotificationsPanel } from "@/components/layout/notifications-panel";
+import { useTheme } from "@/components/layout/theme-provider";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -45,13 +47,14 @@ const resolveTitle = (pathname: string) => {
     return titleBySegment[previous];
   }
 
-  return "Gestion de protocolos";
+  return "Gestion de proyectos";
 };
 
 export function AppHeader() {
   const pathname = usePathname();
   const role = resolveRoleFromPath(pathname);
   const title = resolveTitle(pathname);
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-card/95 backdrop-blur">
@@ -66,6 +69,7 @@ export function AppHeader() {
             <SheetContent side="left" className="w-64">
               <SheetHeader>
                 <SheetTitle>Menu</SheetTitle>
+                <SheetDescription>Navegación principal del sistema.</SheetDescription>
               </SheetHeader>
               <nav className="mt-6 space-y-1">
                 {roleNavigation[role].map((item) => (
@@ -88,6 +92,15 @@ export function AppHeader() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
+            title={theme === "dark" ? "Modo claro" : "Modo oscuro"}
+          >
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
           <NotificationsPanel />
           <Link
             aria-label="Ver perfil"

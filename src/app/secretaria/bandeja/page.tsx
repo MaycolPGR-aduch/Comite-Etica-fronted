@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { useBandejaSecretaria } from "@/hooks";
-import type { Expediente } from "@/types";
+import { EXPEDIENTE_STATUSES, type Expediente } from "@/types";
 import { DataTable, MetricCard, StatusBadge } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -29,11 +29,19 @@ export default function BandejaSecretariaPage() {
           getRowId={(row) => row.id}
           searchAccessor={(row) => [row.codigo, row.titulo, row.facultad, row.estado]}
           searchPlaceholder="Buscar por código, título o facultad"
+          statusAccessor={(row) => row.estado}
+          statusOptions={[...EXPEDIENTE_STATUSES]}
+          dateAccessor={(row) => row.fechaRegistro}
           columns={[
             { key: "codigo", header: "Codigo", cell: (row) => row.codigo },
             { key: "titulo", header: "Titulo", cell: (row) => row.titulo },
               { key: "facultad", header: "Facultad", cell: (row) => row.facultad },
               { key: "estado", header: "Estado", cell: (row) => <StatusBadge status={row.estado} /> },
+              {
+                key: "fecha",
+                header: "Fecha de creación",
+                cell: (row) => new Date(row.fechaRegistro).toLocaleDateString(),
+              },
               {
                 key: "acciones",
                 header: "Acciones",

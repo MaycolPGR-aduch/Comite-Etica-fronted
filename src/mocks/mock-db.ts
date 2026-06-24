@@ -349,7 +349,7 @@ export const metricasCoordinadorMock: Metrica[] = [
 ];
 
 export const configuracionMock: ConfiguracionCatalogos = {
-  tiposTramite: ["Nuevo protocolo", "Modificacion", "Renovacion"],
+  tiposTramite: ["Nuevo proyecto", "Modificacion", "Renovacion"],
   documentosRequeridos: [...baseDocs],
   estados: statuses,
   plantillasNotificacion: [

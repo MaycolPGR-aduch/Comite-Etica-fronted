@@ -34,9 +34,22 @@ interface DataTableProps<TData> {
   searchLabel?: string;
   statusAccessor?: (row: TData) => string;
   statusOptions?: string[];
+  /**
+   * Devuelve la fecha (ISO) de la fila. Si se provee, habilita el filtro por
+   * rango de fechas y ordena los registros de forma descendente (más reciente
+   * primero).
+   */
+  dateAccessor?: (row: TData) => string | null | undefined;
+  dateLabel?: string;
   emptyTitle?: string;
   emptyDescription?: string;
 }
+
+const toDateKey = (value: string | null | undefined) => {
+  if (!value) return "";
+  // Soporta ISO completo ("2026-06-20T14:30:00") o fecha simple ("2026-06-20").
+  return value.slice(0, 10);
+};
 
 const normalizeText = (value: string) =>
   value
@@ -55,18 +68,29 @@ export function DataTable<TData>({
   searchLabel = "Buscar en la tabla",
   statusAccessor,
   statusOptions = [],
+  dateAccessor,
+  dateLabel = "Fecha de creación",
   emptyTitle = "No hay datos",
   emptyDescription = "No se encontraron registros para mostrar.",
 }: DataTableProps<TData>) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const filteredData = useMemo(() => {
     const normalizedSearchTerm = normalizeText(searchTerm);
 
-    return data.filter((row) => {
+    const result = data.filter((row) => {
       if (statusAccessor && statusFilter !== "all" && statusAccessor(row) !== statusFilter) {
         return false;
+      }
+
+      if (dateAccessor && (dateFrom || dateTo)) {
+        const rowDate = toDateKey(dateAccessor(row));
+        if (!rowDate) return false;
+        if (dateFrom && rowDate < dateFrom) return false;
+        if (dateTo && rowDate > dateTo) return false;
       }
 
       if (searchAccessor && normalizedSearchTerm.length > 0) {
@@ -79,10 +103,20 @@ export function DataTable<TData>({
 
       return true;
     });
-  }, [data, searchAccessor, searchTerm, statusAccessor, statusFilter]);
+
+    if (dateAccessor) {
+      return [...result].sort((a, b) =>
+        toDateKey(dateAccessor(b)).localeCompare(toDateKey(dateAccessor(a))),
+      );
+    }
+
+    return result;
+  }, [data, searchAccessor, searchTerm, statusAccessor, statusFilter, dateAccessor, dateFrom, dateTo]);
 
   const hasActiveFilters =
-    Boolean(searchAccessor && searchTerm.trim()) || Boolean(statusAccessor && statusFilter !== "all");
+    Boolean(searchAccessor && searchTerm.trim()) ||
+    Boolean(statusAccessor && statusFilter !== "all") ||
+    Boolean(dateAccessor && (dateFrom || dateTo));
 
   if (loading) {
     return <TableSkeleton columns={columns.length} />;
@@ -94,7 +128,7 @@ export function DataTable<TData>({
 
   return (
     <div className="space-y-4">
-      {searchAccessor || (statusAccessor && statusOptions.length > 0) ? (
+      {searchAccessor || (statusAccessor && statusOptions.length > 0) || dateAccessor ? (
         <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-muted/40 p-3">
           {searchAccessor ? (
             <div className="relative min-w-[240px] flex-1">
@@ -127,6 +161,37 @@ export function DataTable<TData>({
             </div>
           ) : null}
 
+          {dateAccessor ? (
+            <div className="flex items-end gap-2">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground" htmlFor="filter-date-from">
+                  {dateLabel}: desde
+                </label>
+                <Input
+                  id="filter-date-from"
+                  type="date"
+                  className="w-[160px]"
+                  value={dateFrom}
+                  max={dateTo || undefined}
+                  onChange={(event) => setDateFrom(event.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground" htmlFor="filter-date-to">
+                  hasta
+                </label>
+                <Input
+                  id="filter-date-to"
+                  type="date"
+                  className="w-[160px]"
+                  value={dateTo}
+                  min={dateFrom || undefined}
+                  onChange={(event) => setDateTo(event.target.value)}
+                />
+              </div>
+            </div>
+          ) : null}
+
           {hasActiveFilters ? (
             <Button
               type="button"
@@ -134,6 +199,8 @@ export function DataTable<TData>({
               onClick={() => {
                 setSearchTerm("");
                 setStatusFilter("all");
+                setDateFrom("");
+                setDateTo("");
               }}
             >
               Limpiar filtros

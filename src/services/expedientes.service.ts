@@ -34,7 +34,6 @@ export interface NuevoExpedientePayload {
   tipoTramite: string;
   facultad: string;
   prioridad: Priority;
-  resumen: string;
 }
 
 export interface RegistrarDocumentoPayload {
@@ -56,7 +55,7 @@ export interface DescargarDocumentoResponse {
 }
 
 const FALLBACK_DOCUMENTS = [
-  "Protocolo de investigacion",
+  "Proyecto de investigacion",
   "Consentimiento informado",
   "Carta de presentacion",
   "Instrumentos de recoleccion",

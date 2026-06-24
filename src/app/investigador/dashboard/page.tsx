@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { useDashboardInvestigador } from "@/hooks";
-import type { Expediente } from "@/types";
+import { EXPEDIENTE_STATUSES, type Expediente } from "@/types";
 import { DataTable, MetricCard, StatusBadge, Timeline } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -35,6 +35,9 @@ export default function InvestigadorDashboardPage() {
               getRowId={(row) => row.id}
               searchAccessor={(row) => [row.codigo, row.titulo, row.estado]}
               searchPlaceholder="Buscar por código, título o estado"
+              statusAccessor={(row) => row.estado}
+              statusOptions={[...EXPEDIENTE_STATUSES]}
+              dateAccessor={(row) => row.fechaRegistro}
               columns={[
                 {
                   key: "codigo",
@@ -50,6 +53,11 @@ export default function InvestigadorDashboardPage() {
                   key: "estado",
                   header: "Estado",
                   cell: (row) => <StatusBadge status={row.estado} />,
+                },
+                {
+                  key: "fecha",
+                  header: "Fecha de creación",
+                  cell: (row) => new Date(row.fechaRegistro).toLocaleDateString(),
                 },
                 {
                   key: "acciones",

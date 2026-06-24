@@ -5,9 +5,9 @@ import { AppProviders } from "@/components/layout";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Comite de Etica - Gestion de Protocolos",
+  title: "Comite de Etica - Gestion de Proyectos",
   description:
-    "Sistema web para la gestion y evaluacion de protocolos del Comite de Etica universitario.",
+    "Sistema web para la gestion y evaluacion de proyectos del Comite de Etica universitario.",
 };
 
 export default function RootLayout({

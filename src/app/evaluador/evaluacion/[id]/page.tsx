@@ -14,7 +14,7 @@ import {
   useDeclararConflictoEvaluacion,
   useGuardarEvaluacion,
 } from "@/hooks";
-import type { Documento, Recommendation, RiskLevel } from "@/types";
+import type { Documento, Recommendation } from "@/types";
 import { EmptyState, PageHeader, PageSkeleton, useConfirm } from "@/components/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,6 @@ export default function EvaluacionEticaPage() {
   const documentoMutation = useDescargarDocumentoExpediente();
   const normalize = (value?: string) => value?.trim().toLowerCase() ?? "";
 
-  const [draftRiesgo, setDraftRiesgo] = useState<RiskLevel | null>(null);
   const [draftRecomendacion, setDraftRecomendacion] = useState<Recommendation | null>(null);
   const [observaciones, setObservaciones] = useState<Record<string, string>>({});
   const [documentoError, setDocumentoError] = useState<string | null>(null);
@@ -83,7 +82,9 @@ export default function EvaluacionEticaPage() {
     );
   }
 
-  const riesgo = draftRiesgo ?? data.evaluacionActual.riesgo;
+  // El "Nivel de riesgo" se oculta de la UI (alineación de requerimientos),
+  // pero se mantiene el valor existente para no romper el contrato del backend.
+  const riesgo = data.evaluacionActual.riesgo;
   const recomendacion = draftRecomendacion ?? data.evaluacionActual.recomendacion;
 
   const submit = async (enviar: boolean) => {
@@ -401,26 +402,6 @@ export default function EvaluacionEticaPage() {
               />
             </div>
           ))}
-
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Nivel de riesgo</p>
-            <div className="flex gap-2">
-              {(["Bajo", "Medio", "Alto"] as const).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className={`rounded-md border px-3 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                    riesgo === option
-                      ? "border-primary bg-secondary font-medium text-secondary-foreground"
-                      : "border-border text-muted-foreground hover:bg-muted"
-                  }`}
-                  onClick={() => setDraftRiesgo(option)}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-          </div>
 
           <div className="space-y-2">
             <p className="text-sm font-medium">Recomendacion preliminar</p>

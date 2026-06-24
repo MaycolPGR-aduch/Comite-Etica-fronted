@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
@@ -24,12 +25,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 
 const TIPO_TRAMITE_OPTIONS = [
-  { value: "protocolo_estudiante", label: "Protocolo para estudiante" },
-  { value: "protocolo_tesista", label: "Protocolo para tesista/profesor" },
+  { value: "protocolo_estudiante", label: "Proyecto para estudiante" },
+  { value: "protocolo_tesista", label: "Proyecto para tesista/profesor" },
 ] as const;
 
 const FACULTAD_OPTIONS = [
@@ -49,8 +49,10 @@ const schema = z.object({
   titulo: z.string().min(10, "El titulo debe tener al menos 10 caracteres"),
   tipoTramite: z.string().min(3, "Ingrese tipo de tramite"),
   facultad: z.string().min(2, "Ingrese la facultad"),
+  // Prioridad se oculta en la UI pero se mantiene con un valor por defecto y
+  // se sigue enviando al backend hasta que el campo sea eliminado del contrato
+  // (alineación de requerimientos).
   prioridad: z.enum(["Alta", "Media", "Baja"]),
-  resumen: z.string().min(40, "El resumen debe tener al menos 40 caracteres"),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -76,7 +78,6 @@ export default function NuevoExpedientePage() {
       tipoTramite: "protocolo_estudiante",
       facultad: FACULTAD_OPTIONS[0],
       prioridad: "Media",
-      resumen: "",
     },
   });
 
@@ -207,6 +208,11 @@ export default function NuevoExpedientePage() {
       <PageHeader
         title="Nuevo expediente"
         description="Crea el expediente como borrador, carga los documentos requeridos y envíalo al Comité."
+        actions={
+          <Button asChild variant="outline" size="sm">
+            <Link href="/guia">Guía de envío y requisitos</Link>
+          </Button>
+        }
       />
       <Card>
         <CardContent className="pt-6">
@@ -240,7 +246,7 @@ export default function NuevoExpedientePage() {
             {step === 1 ? (
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="titulo">Titulo del protocolo</Label>
+                  <Label htmlFor="titulo">Título del Proyecto</Label>
                   <Input id="titulo" {...form.register("titulo")} />
                   {form.formState.errors.titulo ? (
                     <p className="text-xs text-destructive">{form.formState.errors.titulo.message}</p>
@@ -279,25 +285,6 @@ export default function NuevoExpedientePage() {
                       </option>
                     ))}
                   </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="prioridad">Prioridad</Label>
-                  <select
-                    id="prioridad"
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    {...form.register("prioridad")}
-                  >
-                    <option value="Alta">Alta</option>
-                    <option value="Media">Media</option>
-                    <option value="Baja">Baja</option>
-                  </select>
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="resumen">Resumen (UI)</Label>
-                  <Textarea id="resumen" rows={5} {...form.register("resumen")} />
-                  {form.formState.errors.resumen ? (
-                    <p className="text-xs text-destructive">{form.formState.errors.resumen.message}</p>
-                  ) : null}
                 </div>
               </div>
             ) : null}
@@ -382,7 +369,7 @@ export default function NuevoExpedientePage() {
                       <strong>Código:</strong> {expedienteCreado?.codigo}
                     </p>
                     <p>
-                      <strong>Titulo:</strong> {form.getValues("titulo")}
+                      <strong>Título del proyecto:</strong> {form.getValues("titulo")}
                     </p>
                     <p>
                       <strong>Tipo de tramite:</strong>{" "}
@@ -395,9 +382,6 @@ export default function NuevoExpedientePage() {
                     </p>
                     <p>
                       <strong>Estado actual:</strong> {expedienteCreado?.estado}
-                    </p>
-                    <p>
-                      <strong>Prioridad:</strong> {form.getValues("prioridad")}
                     </p>
                   </CardContent>
                 </Card>

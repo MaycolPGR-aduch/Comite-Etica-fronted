@@ -30,7 +30,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (pathname === "/login" && token && role && roleHomeByRoleCookie[role]) {
+  const isLoginRoute = pathname === "/login" || pathname === "/login/staff";
+  if (isLoginRoute && token && role && roleHomeByRoleCookie[role]) {
     return NextResponse.redirect(new URL(roleHomeByRoleCookie[role], request.url));
   }
 
@@ -38,5 +39,13 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/investigador/:path*", "/secretaria/:path*", "/coordinador/:path*", "/evaluador/:path*", "/admin/:path*", "/login"],
+  matcher: [
+    "/investigador/:path*",
+    "/secretaria/:path*",
+    "/coordinador/:path*",
+    "/evaluador/:path*",
+    "/admin/:path*",
+    "/login",
+    "/login/staff",
+  ],
 };
