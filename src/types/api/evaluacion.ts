@@ -34,6 +34,8 @@ export interface EvaluacionResponseDto {
   completa: boolean;
   conflicto_interes: boolean;
   titulo_protocolo?: string | null;
+  investigador_nombre?: string | null;
+  expediente_fecha_envio?: string | null;
   criterios?: CriterioEvaluacionResponseDto[];
   puntaje_total?: number | null;
   resultado?: string | null;

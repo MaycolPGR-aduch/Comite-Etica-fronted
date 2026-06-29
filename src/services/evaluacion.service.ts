@@ -44,6 +44,8 @@ export interface EvaluacionBandejaItem {
   id: string;
   expedienteId: string;
   expedienteTitulo?: string;
+  investigadorNombre?: string | null;
+  fechaEnvio?: string | null;
   evaluadorId: string;
   recommendation: Recommendation | null;
   observaciones: string | null;
@@ -156,6 +158,8 @@ const toBandejaItem = (dto: EvaluacionResponseDto): EvaluacionBandejaItem => ({
   id: String(dto.id),
   expedienteId: String(dto.expediente_id),
   expedienteTitulo: dto.titulo_protocolo ?? undefined,
+  investigadorNombre: dto.investigador_nombre ?? null,
+  fechaEnvio: dto.expediente_fecha_envio ?? null,
   evaluadorId: String(dto.evaluador_id),
   recommendation: toRecommendation(dto.recommendation),
   observaciones: dto.observaciones,
