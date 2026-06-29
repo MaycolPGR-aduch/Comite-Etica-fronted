@@ -46,6 +46,11 @@ export default function BandejaEvaluadorPage() {
               cell: (row) => row.expedienteTitulo ?? "Sin titulo",
             },
             {
+              key: "solicitante",
+              header: "Solicitante",
+              cell: (row) => row.investigadorNombre ?? "—",
+            },
+            {
               key: "estado",
               header: "Estado",
               cell: (row) => (

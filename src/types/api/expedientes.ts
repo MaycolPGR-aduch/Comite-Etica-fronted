@@ -5,6 +5,7 @@ export interface ExpedienteResponseDto {
   facultad: string | null;
   codigo_unico: string | null;
   investigador_id: number;
+  investigador_nombre?: string | null;
   estado: string;
   fecha_envio: string | null;
   created_at: string;

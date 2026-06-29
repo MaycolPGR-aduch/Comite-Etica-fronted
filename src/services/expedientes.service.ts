@@ -384,7 +384,8 @@ const toDomainExpediente = (
     id: String(dto.id),
     codigo: dto.codigo_unico ?? `EXP-${dto.id}`,
     titulo: dto.titulo_protocolo,
-    investigadorPrincipal: sessionUser?.nombre ?? `Investigador #${dto.investigador_id}`,
+    investigadorPrincipal:
+      dto.investigador_nombre ?? sessionUser?.nombre ?? `Investigador #${dto.investigador_id}`,
     tipoTramite: dto.tipo_tramite ?? "No especificado",
     facultad: dto.facultad ?? "No especificada",
     fechaRegistro: dto.created_at,

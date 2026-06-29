@@ -33,6 +33,7 @@ export default function BandejaSecretariaPage() {
           columns={[
             { key: "codigo", header: "Codigo", cell: (row) => row.codigo },
             { key: "titulo", header: "Titulo", cell: (row) => row.titulo },
+              { key: "solicitante", header: "Solicitante", cell: (row) => row.investigadorPrincipal },
               { key: "facultad", header: "Facultad", cell: (row) => row.facultad },
               { key: "estado", header: "Estado", cell: (row) => <StatusBadge status={row.estado} /> },
               {
