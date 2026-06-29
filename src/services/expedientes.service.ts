@@ -82,6 +82,9 @@ export interface ProyectoElegibleCambioTitulo {
   codigo: string | null;
   titulo: string;
   estado: string;
+  programaEstudios: string | null;
+  ciclo: string | null;
+  autores: AutorPayload[];
 }
 
 /** URL pública de una plantilla/guía del comité. */
@@ -572,13 +575,28 @@ export const expedientesService = {
 
   async getProyectosElegiblesCambioTitulo(): Promise<ProyectoElegibleCambioTitulo[]> {
     const response = await api.get<
-      Array<{ id: number; codigo: string | null; titulo: string; estado: string }>
+      Array<{
+        id: number;
+        codigo: string | null;
+        titulo: string;
+        estado: string;
+        programa_estudios: string | null;
+        ciclo: string | null;
+        autores: Array<{ apellidos_nombres: string; codigo_estudiante?: string; correo?: string }>;
+      }>
     >("/expedientes/elegibles-cambio-titulo");
     return response.data.map((p) => ({
       id: String(p.id),
       codigo: p.codigo,
       titulo: p.titulo,
       estado: p.estado,
+      programaEstudios: p.programa_estudios,
+      ciclo: p.ciclo,
+      autores: (p.autores ?? []).map((a) => ({
+        apellidos_nombres: a.apellidos_nombres,
+        codigo_estudiante: a.codigo_estudiante ?? "",
+        correo: a.correo ?? "",
+      })),
     }));
   },
 

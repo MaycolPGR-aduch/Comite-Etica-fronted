@@ -1,7 +1,7 @@
 "use client";
 
 import axios from "axios";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 
 import {
@@ -95,7 +95,25 @@ export default function CambioTituloPage() {
   const tituloAnterior = proyectoSeleccionado?.titulo ?? "";
   // El N° de acta se deriva del código del proyecto (ej. "1-2026" -> "1").
   const numeroActa = proyectoSeleccionado?.codigo?.split("-")[0] ?? "";
-  const { fields, append, remove } = useFieldArray({ control: form.control, name: "autores" });
+  const { fields, append, remove, replace } = useFieldArray({ control: form.control, name: "autores" });
+
+  // Al seleccionar un proyecto, autollenar sus datos para que el estudiante solo modifique lo necesario.
+  useEffect(() => {
+    if (!proyectoSeleccionado) return;
+    form.setValue("programa", proyectoSeleccionado.programaEstudios ?? "");
+    form.setValue("ciclo", proyectoSeleccionado.ciclo ?? "");
+    form.setValue("tituloNuevo", proyectoSeleccionado.titulo); // pre-cargado con el título actual para editar
+    replace(
+      proyectoSeleccionado.autores.length > 0
+        ? proyectoSeleccionado.autores.map((a) => ({
+            apellidos_nombres: a.apellidos_nombres,
+            codigo_estudiante: a.codigo_estudiante ?? "",
+            correo: a.correo ?? "",
+          }))
+        : [emptyAutor],
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proyectoOrigenId]);
 
   const isWorking =
     crearMutation.isPending || registrarDocMutation.isPending || enviarMutation.isPending;
