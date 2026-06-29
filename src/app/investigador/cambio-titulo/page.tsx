@@ -38,7 +38,6 @@ interface AutorForm {
 
 interface FormData {
   proyectoOrigenId: string;
-  numeroActa: string;
   programa: string;
   ciclo: string;
   tituloNuevo: string;
@@ -81,7 +80,6 @@ export default function CambioTituloPage() {
   const form = useForm<FormData>({
     defaultValues: {
       proyectoOrigenId: "",
-      numeroActa: "",
       programa: "",
       ciclo: "",
       tituloNuevo: "",
@@ -90,10 +88,13 @@ export default function CambioTituloPage() {
   });
 
   const proyectoOrigenId = form.watch("proyectoOrigenId");
-  const tituloAnterior = useMemo(
-    () => proyectosElegibles?.find((p) => p.id === proyectoOrigenId)?.titulo ?? "",
+  const proyectoSeleccionado = useMemo(
+    () => proyectosElegibles?.find((p) => p.id === proyectoOrigenId) ?? null,
     [proyectosElegibles, proyectoOrigenId],
   );
+  const tituloAnterior = proyectoSeleccionado?.titulo ?? "";
+  // El N° de acta se deriva del código del proyecto (ej. "1-2026" -> "1").
+  const numeroActa = proyectoSeleccionado?.codigo?.split("-")[0] ?? "";
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "autores" });
 
   const isWorking =
@@ -103,7 +104,6 @@ export default function CambioTituloPage() {
     setError(null);
     const v = form.getValues();
     if (!v.proyectoOrigenId) return setError("Selecciona el proyecto aprobado que deseas modificar.");
-    if (!v.numeroActa.trim()) return setError("Ingresa el N° de acta.");
     if (!v.programa) return setError("Selecciona el programa de estudios.");
     if (!v.ciclo) return setError("Selecciona el ciclo.");
     if (v.tituloNuevo.trim().length < 5) return setError("Ingresa el nuevo título.");
@@ -138,7 +138,6 @@ export default function CambioTituloPage() {
         const v = form.getValues();
         exp = await crearMutation.mutateAsync({
           proyectoOrigenId: v.proyectoOrigenId,
-          numeroActa: v.numeroActa.trim(),
           programaEstudios: v.programa,
           ciclo: v.ciclo,
           tituloNuevo: v.tituloNuevo.trim(),
@@ -282,18 +281,25 @@ export default function CambioTituloPage() {
                     </AlertDescription>
                   </Alert>
                 )}
-                {tituloAnterior ? (
-                  <p className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
-                    <strong>Título actual:</strong> {tituloAnterior}
-                  </p>
+                {proyectoSeleccionado ? (
+                  <div className="space-y-1 rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                    <p>
+                      <strong>Código:</strong> {proyectoSeleccionado.codigo ?? "—"}
+                      {numeroActa ? (
+                        <>
+                          {" · "}
+                          <strong>N° de acta:</strong> {numeroActa}
+                        </>
+                      ) : null}
+                    </p>
+                    <p>
+                      <strong>Título actual:</strong> {tituloAnterior}
+                    </p>
+                  </div>
                 ) : null}
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="numeroActa">N° de acta</Label>
-                  <Input id="numeroActa" {...form.register("numeroActa")} />
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="programa">Programa de estudios</Label>
                   <select
@@ -454,7 +460,8 @@ export default function CambioTituloPage() {
             <div className="space-y-4">
               <div className="space-y-2 rounded-md border p-4 text-sm">
                 <p>
-                  <strong>N° de acta:</strong> {form.getValues("numeroActa")}
+                  <strong>Proyecto:</strong> {proyectoSeleccionado?.codigo ?? "—"}
+                  {numeroActa ? ` · N° de acta: ${numeroActa}` : ""}
                 </p>
                 <p>
                   <strong>Programa:</strong> {form.getValues("programa")} · Ciclo {form.getValues("ciclo")}

@@ -71,7 +71,6 @@ export interface CatalogosExpediente {
 
 export interface CambioTituloPayload {
   proyectoOrigenId: string;
-  numeroActa: string;
   programaEstudios: string;
   ciclo: string;
   tituloNuevo: string;
@@ -588,7 +587,6 @@ export const expedientesService = {
   ): Promise<{ id: string; codigo: string }> {
     const requestBody = {
       proyecto_origen_id: Number(payload.proyectoOrigenId),
-      numero_acta: payload.numeroActa,
       programa_estudios: payload.programaEstudios,
       ciclo: payload.ciclo,
       titulo_nuevo: payload.tituloNuevo,
