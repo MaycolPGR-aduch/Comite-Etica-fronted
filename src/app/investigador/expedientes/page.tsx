@@ -2,18 +2,42 @@
 
 import Link from "next/link";
 
-import { useExpedientes } from "@/hooks";
+import { useEliminarExpediente, useExpedientes } from "@/hooks";
 import { EXPEDIENTE_STATUSES, type Expediente } from "@/types";
-import { DataTable, StatusBadge } from "@/components/shared";
+import { DataTable, StatusBadge, useConfirm } from "@/components/shared";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "@/components/ui/toast";
 
 export default function MisExpedientesPage() {
   const { data = [], isLoading } = useExpedientes();
+  const eliminarMutation = useEliminarExpediente();
+  const confirm = useConfirm();
+
+  const handleEliminar = async (row: Expediente) => {
+    const ok = await confirm({
+      title: "Eliminar proyecto",
+      description: `Se eliminará el borrador "${row.titulo}". Esta acción no se puede deshacer.`,
+      confirmLabel: "Eliminar",
+      variant: "destructive",
+    });
+    if (!ok) return;
+
+    try {
+      await eliminarMutation.mutateAsync(row.id);
+      toast.success("Proyecto eliminado", "El borrador se eliminó correctamente.");
+    } catch (error) {
+      toast.error(
+        "No se pudo eliminar",
+        error instanceof Error ? error.message : undefined,
+      );
+    }
+  };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Mis expedientes</CardTitle>
+        <CardTitle>Mis proyectos</CardTitle>
       </CardHeader>
       <CardContent>
         <DataTable<Expediente>
@@ -35,13 +59,12 @@ export default function MisExpedientesPage() {
               ),
             },
             { key: "titulo", header: "Titulo", cell: (row) => row.titulo },
-            { key: "tipo", header: "Tipo", cell: (row) => row.tipoTramite },
             { key: "estado", header: "Estado", cell: (row) => <StatusBadge status={row.estado} /> },
             {
               key: "acciones",
               header: "Acciones",
               cell: (row) => (
-                <div className="flex flex-col gap-1 text-sm">
+                <div className="flex flex-col items-start gap-1 text-sm">
                   <Link href={`/investigador/expedientes/${row.id}`} className="text-primary hover:underline">
                     Ver detalle
                   </Link>
@@ -51,7 +74,17 @@ export default function MisExpedientesPage() {
                   >
                     Subsanar
                   </Link>
-                  <span className="text-slate-500">Dictamen disponible cuando sea emitido</span>
+                  {row.estado === "Borrador" ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto px-0 text-destructive hover:text-destructive"
+                      onClick={() => handleEliminar(row)}
+                      disabled={eliminarMutation.isPending}
+                    >
+                      Eliminar
+                    </Button>
+                  ) : null}
                 </div>
               ),
             },

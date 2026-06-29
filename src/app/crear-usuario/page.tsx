@@ -20,36 +20,56 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Role } from "@/types";
+import type { SelfRegisterRole } from "@/types";
 
 const schema = z
   .object({
     nombres: z.string().min(3, "Ingrese nombres validos"),
     apellidos: z.string().min(3, "Ingrese apellidos validos"),
     correo: z.string().email("Correo invalido"),
-    rol: z.custom<Role>(),
+    rol: z.custom<SelfRegisterRole>(),
+    codigoEstudiante: z.string().optional(),
+    laboratorio: z.string().optional(),
     password: z.string().min(8, "Minimo 8 caracteres"),
     confirmarPassword: z.string().min(8, "Confirme su contraseña"),
   })
   .refine((data) => data.password === data.confirmarPassword, {
     message: "Las contraseñas no coinciden",
     path: ["confirmarPassword"],
+  })
+  .superRefine((data, ctx) => {
+    const esEstudiante =
+      data.rol === "estudiante_pregrado" || data.rol === "estudiante_postgrado";
+    if (esEstudiante && !data.codigoEstudiante?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Ingrese su código de estudiante",
+        path: ["codigoEstudiante"],
+      });
+    }
+    if (data.rol === "investigador" && !data.laboratorio?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Ingrese el laboratorio al que pertenece",
+        path: ["laboratorio"],
+      });
+    }
   });
 
 type FormData = z.infer<typeof schema>;
 
-const roleOptions: Array<{ value: Role; label: string }> = [
+// Solo estos 3 roles pueden auto-registrarse. Los roles internos
+// (coordinador, secretaria, evaluador, administrador) los crea el administrador.
+const roleOptions: Array<{ value: SelfRegisterRole; label: string }> = [
+  { value: "estudiante_pregrado", label: "Estudiante de pregrado" },
+  { value: "estudiante_postgrado", label: "Estudiante de postgrado" },
   { value: "investigador", label: "Investigador" },
-  { value: "secretaria", label: "Secretaria tecnica" },
-  { value: "coordinador", label: "Coordinador" },
-  { value: "evaluador", label: "Evaluador" },
-  { value: "administrador", label: "Administrador" },
 ];
 
 export default function CrearUsuarioPage() {
   const router = useRouter();
   const registerMutation = useRegister();
-  const [selectedRole, setSelectedRole] = useState<Role>("investigador");
+  const [selectedRole, setSelectedRole] = useState<SelfRegisterRole>("estudiante_pregrado");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const form = useForm<FormData>({
@@ -58,11 +78,17 @@ export default function CrearUsuarioPage() {
       nombres: "",
       apellidos: "",
       correo: "",
-      rol: "investigador",
+      rol: "estudiante_pregrado",
+      codigoEstudiante: "",
+      laboratorio: "",
       password: "",
       confirmarPassword: "",
     },
   });
+
+  const esEstudiante =
+    selectedRole === "estudiante_pregrado" || selectedRole === "estudiante_postgrado";
+  const esInvestigador = selectedRole === "investigador";
 
   const onSubmit = form.handleSubmit(async (values) => {
     setErrorMessage(null);
@@ -74,6 +100,8 @@ export default function CrearUsuarioPage() {
         correo: values.correo,
         rol: values.rol,
         password: values.password,
+        codigo_estudiante: esEstudiante ? values.codigoEstudiante : undefined,
+        laboratorio: esInvestigador ? values.laboratorio : undefined,
       });
 
       router.push("/crear-usuario/exito");
@@ -89,8 +117,10 @@ export default function CrearUsuarioPage() {
       <Card className="w-full max-w-lg border-blue-100/70 bg-white/93 shadow-xl backdrop-blur-sm">
           <CardHeader className="space-y-2 text-center">
           <p className="text-sm font-bold uppercase tracking-[0.2em] text-primary">Registro</p>
-          <CardTitle className="text-3xl font-bold text-[#08204A]">Crear usuario</CardTitle>
-          <p className="text-sm font-medium text-slate-600">Registro conectado al backend del sistema.</p>
+          <CardTitle className="text-3xl font-bold text-[#08204A]">Registrarse</CardTitle>
+          <p className="text-sm font-medium text-slate-600">
+            Crea tu cuenta como estudiante de pregrado, postgrado o investigador.
+          </p>
         </CardHeader>
 
         <CardContent>
@@ -132,7 +162,7 @@ export default function CrearUsuarioPage() {
               <Select
                 value={selectedRole}
                 onValueChange={(value) => {
-                  const role = value as Role;
+                  const role = value as SelfRegisterRole;
                   setSelectedRole(role);
                   form.setValue("rol", role, { shouldValidate: true });
                 }}
@@ -149,6 +179,42 @@ export default function CrearUsuarioPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {esEstudiante ? (
+              <div className="space-y-2">
+                <Label className="font-semibold" htmlFor="codigoEstudiante">
+                  Código de estudiante
+                </Label>
+                <Input
+                  id="codigoEstudiante"
+                  placeholder="Ej. 2021100123"
+                  {...form.register("codigoEstudiante")}
+                />
+                {form.formState.errors.codigoEstudiante ? (
+                  <p className="text-xs font-medium text-red-600">
+                    {form.formState.errors.codigoEstudiante.message}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {esInvestigador ? (
+              <div className="space-y-2">
+                <Label className="font-semibold" htmlFor="laboratorio">
+                  Laboratorio al que pertenece
+                </Label>
+                <Input
+                  id="laboratorio"
+                  placeholder="Ej. INTIALB"
+                  {...form.register("laboratorio")}
+                />
+                {form.formState.errors.laboratorio ? (
+                  <p className="text-xs font-medium text-red-600">
+                    {form.formState.errors.laboratorio.message}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
@@ -174,7 +240,7 @@ export default function CrearUsuarioPage() {
             {errorMessage ? <p className="text-sm font-medium text-red-600">{errorMessage}</p> : null}
 
             <Button className="w-full font-semibold" type="submit" disabled={registerMutation.isPending}>
-              {registerMutation.isPending ? "Creando..." : "Crear cuenta"}
+              {registerMutation.isPending ? "Registrando..." : "Registrarse"}
             </Button>
 
             <div className="text-center text-sm font-medium">

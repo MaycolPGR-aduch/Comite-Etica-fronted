@@ -2,16 +2,19 @@
 
 import Link from "next/link";
 
-import { useDashboardInvestigador } from "@/hooks";
+import { useDashboardInvestigador, useFechaLimite } from "@/hooks";
 import type { Expediente } from "@/types";
-import { DataTable, MetricCard, StatusBadge, Timeline } from "@/components/shared";
+import { CountdownDeadline, DataTable, MetricCard, StatusBadge, Timeline } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function InvestigadorDashboardPage() {
   const { data, isLoading } = useDashboardInvestigador();
+  const { data: fechaLimite } = useFechaLimite();
 
   return (
     <div className="space-y-6">
+      <CountdownDeadline fechaLimite={fechaLimite ?? null} variant="full" />
+
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {data?.metricas.map((metric) => (
           <MetricCard
@@ -26,7 +29,7 @@ export default function InvestigadorDashboardPage() {
       <section className="grid gap-6 xl:grid-cols-3">
         <Card className="xl:col-span-2">
           <CardHeader>
-            <CardTitle>Expedientes recientes</CardTitle>
+            <CardTitle>Mis proyectos recientes</CardTitle>
           </CardHeader>
           <CardContent>
             <DataTable<Expediente>

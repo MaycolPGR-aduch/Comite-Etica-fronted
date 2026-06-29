@@ -1,5 +1,21 @@
 export type Role =
   | "investigador"
+  | "estudiante_pregrado"
+  | "estudiante_postgrado"
+  | "secretaria"
+  | "coordinador"
+  | "evaluador"
+  | "administrador";
+
+// Roles que pueden auto-registrarse desde la pantalla pública de "Crear usuario".
+// Comparten la misma vista funcional aunque sean roles distintos.
+export type SelfRegisterRole =
+  | "investigador"
+  | "estudiante_pregrado"
+  | "estudiante_postgrado";
+
+// Roles internos: solo los crea el administrador desde Gestión de usuarios.
+export type InternalRole =
   | "secretaria"
   | "coordinador"
   | "evaluador"
@@ -18,14 +34,30 @@ export const EXPEDIENTE_STATUSES = [
   "En deliberación",
   "Observado",
   "Aprobado",
+  "Aprobado con observaciones",
+  "No aprobado",
   "Cerrado",
 ] as const;
 
 export type ExpedienteStatus = (typeof EXPEDIENTE_STATUSES)[number];
 
-export type Priority = "Alta" | "Media" | "Baja";
+// Resultado del dictamen derivado de la rúbrica (valores crudos del backend).
+export type ResultadoEvaluacion = "aprobado" | "aprobado_observaciones" | "no_aprobado";
 
-export type RiskLevel = "Bajo" | "Medio" | "Alto";
+// Un criterio de la rúbrica oficial (catálogo del backend).
+export interface RubricaCriterio {
+  key: string;
+  nombre: string;
+  descripcion: string;
+  puntajeMax: number;
+}
+
+// El puntaje y la observación que el evaluador asigna a un criterio.
+export interface CriterioEvaluado {
+  key: string;
+  puntaje: number;
+  observacion: string;
+}
 
 export type Recommendation =
   | "Aprobar"
@@ -83,7 +115,6 @@ export interface Evaluacion {
   id: string;
   expedienteId: string;
   evaluadorId: string;
-  riesgo: RiskLevel;
   recomendacion: Recommendation;
   secciones: EvaluacionSeccion[];
   estado: "Borrador" | "Enviada";
@@ -119,9 +150,7 @@ export interface Expediente {
   facultad: string;
   fechaRegistro: string;
   fechaLimite?: string;
-  prioridad: Priority;
   estado: ExpedienteStatus;
-  riesgo?: RiskLevel;
   documentos: Documento[];
   observacionesPendientes: number;
   evaluadoresAsignados: string[];
@@ -137,7 +166,6 @@ export interface Metrica {
 
 export interface LoginPayload {
   correo: string;
-  role: Role;
   password: string;
 }
 
@@ -150,11 +178,22 @@ export interface RegisterPayload {
   nombres: string;
   apellidos: string;
   correo: string;
-  rol: Role;
+  rol: SelfRegisterRole;
   password: string;
   especialidad?: string;
   carga_trabajo?: number;
   conflicto_interes?: boolean;
+  // Campos académicos según el rol
+  codigo_estudiante?: string;
+  laboratorio?: string;
+}
+
+export interface CreateUserPayload {
+  nombre: string;
+  apellido: string;
+  email: string;
+  password: string;
+  rol: InternalRole;
 }
 
 export interface ConfiguracionCatalogos {
@@ -213,13 +252,6 @@ export interface IAInconsistencias {
   isPlaceholder: boolean;
 }
 
-export interface IARiesgos {
-  nivelRiesgo: string;
-  factores: string[];
-  mensaje?: string;
-  isPlaceholder: boolean;
-}
-
 export interface IAObservacionesSugeridas {
   observacionesSugeridas: string[];
   mensaje?: string;
@@ -264,7 +296,6 @@ export interface ReporteBusquedaExpediente {
   investigadorId: string;
   tipoTramite: string;
   facultad: string;
-  prioridad: string;
   estado: string;
   fechaEnvio?: string;
   fechaCreacion?: string;

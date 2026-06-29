@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download, ExternalLink } from "lucide-react";
 
 import {
@@ -9,49 +9,103 @@ import {
   useIAInconsistencias,
   useIAObservacionesSugeridas,
   useIAPreanalisis,
-  useIARiesgos,
   useContextoEvaluacion,
   useDeclararConflictoEvaluacion,
-  useGuardarEvaluacion,
+  useGuardarRubrica,
+  useRubrica,
 } from "@/hooks";
-import type { Documento, Recommendation, RiskLevel } from "@/types";
-import { EmptyState, PageHeader, PageSkeleton, useConfirm } from "@/components/shared";
+import type {
+  CriterioEvaluado,
+  Documento,
+  ExpedienteStatus,
+  ResultadoEvaluacion,
+} from "@/types";
+import { EmptyState, PageHeader, PageSkeleton, StatusBadge, useConfirm } from "@/components/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
-const sections = ["Metodologia", "Riesgo", "Consentimiento", "Proteccion de datos"];
+
+// Umbrales locales (réplica del backend) para el preview en vivo del dictamen.
+const deriveResultado = (total: number): ResultadoEvaluacion => {
+  if (total >= 17) return "aprobado";
+  if (total >= 13) return "aprobado_observaciones";
+  return "no_aprobado";
+};
+
+const resultadoLabel: Record<ResultadoEvaluacion, ExpedienteStatus> = {
+  aprobado: "Aprobado",
+  aprobado_observaciones: "Aprobado con observaciones",
+  no_aprobado: "No aprobado",
+};
+
+interface CriterioValue {
+  puntaje: number;
+  observacion: string;
+}
 
 export default function EvaluacionEticaPage() {
   const params = useParams<{ id: string }>();
   const evaluacionId = String(params.id);
   const { data, isLoading, error } = useContextoEvaluacion(evaluacionId);
-  const mutation = useGuardarEvaluacion();
+  const rubricaQuery = useRubrica();
+  const mutation = useGuardarRubrica();
   const conflictoMutation = useDeclararConflictoEvaluacion();
   const confirm = useConfirm();
   const expedienteId = data?.expediente.id ?? "";
   const preanalisisQuery = useIAPreanalisis(expedienteId);
   const inconsistenciasQuery = useIAInconsistencias(expedienteId);
-  const riesgosQuery = useIARiesgos(expedienteId);
   const observacionesIAQuery = useIAObservacionesSugeridas(expedienteId);
   const documentoMutation = useDescargarDocumentoExpediente();
   const normalize = (value?: string) => value?.trim().toLowerCase() ?? "";
 
-  const [draftRiesgo, setDraftRiesgo] = useState<RiskLevel | null>(null);
-  const [draftRecomendacion, setDraftRecomendacion] = useState<Recommendation | null>(null);
-  const [observaciones, setObservaciones] = useState<Record<string, string>>({});
+  const [criterioValues, setCriterioValues] = useState<Record<string, CriterioValue>>({});
+  const [observacionesGenerales, setObservacionesGenerales] = useState("");
+  const [initialized, setInitialized] = useState(false);
   const [documentoError, setDocumentoError] = useState<string | null>(null);
 
-  const defaultObservaciones = useMemo(() => {
-    if (!data) return {};
+  // Precarga: inicializa puntajes/observaciones con lo ya guardado (si existe).
+  useEffect(() => {
+    if (initialized) return;
+    if (!rubricaQuery.data || !data) return;
 
-    return data.evaluacionActual.secciones.reduce<Record<string, string>>((acc, item) => {
-      acc[item.seccion] = item.observacion;
-      return acc;
-    }, {});
-  }, [data]);
+    const existing = new Map<string, CriterioEvaluado>(
+      data.evaluacion.criterios.map((item) => [item.key, item]),
+    );
+
+    const initial: Record<string, CriterioValue> = {};
+    for (const criterio of rubricaQuery.data.criterios) {
+      const previo = existing.get(criterio.key);
+      initial[criterio.key] = {
+        puntaje: previo?.puntaje ?? 0,
+        observacion: previo?.observacion ?? "",
+      };
+    }
+
+    setCriterioValues(initial);
+    setObservacionesGenerales(data.evaluacion.observaciones ?? "");
+    setInitialized(true);
+  }, [initialized, rubricaQuery.data, data]);
+
+  const puntajeTotalMax = rubricaQuery.data?.puntajeTotalMax ?? 20;
+
+  const total = useMemo(
+    () =>
+      Object.values(criterioValues).reduce((acc, item) => acc + (item?.puntaje ?? 0), 0),
+    [criterioValues],
+  );
+
+  const resultadoPrevisto = deriveResultado(total);
 
   const documentoPrincipal = useMemo<Documento | null>(() => {
     if (!data?.expediente.documentos?.length) return null;
@@ -83,10 +137,24 @@ export default function EvaluacionEticaPage() {
     );
   }
 
-  const riesgo = draftRiesgo ?? data.evaluacionActual.riesgo;
-  const recomendacion = draftRecomendacion ?? data.evaluacionActual.recomendacion;
+  const setPuntaje = (key: string, value: number) =>
+    setCriterioValues((current) => ({
+      ...current,
+      [key]: { puntaje: value, observacion: current[key]?.observacion ?? "" },
+    }));
+
+  const setObservacion = (key: string, value: string) =>
+    setCriterioValues((current) => ({
+      ...current,
+      [key]: { puntaje: current[key]?.puntaje ?? 0, observacion: value },
+    }));
 
   const submit = async (enviar: boolean) => {
+    if (!rubricaQuery.data) {
+      toast.error("Rúbrica no disponible", "No se pudo cargar la rúbrica oficial.");
+      return;
+    }
+
     if (enviar) {
       const confirmed = await confirm({
         title: "Enviar evaluación",
@@ -97,22 +165,29 @@ export default function EvaluacionEticaPage() {
       if (!confirmed) return;
     }
 
+    const criterios: CriterioEvaluado[] = rubricaQuery.data.criterios.map((criterio) => ({
+      key: criterio.key,
+      puntaje: criterioValues[criterio.key]?.puntaje ?? 0,
+      observacion: criterioValues[criterio.key]?.observacion ?? "",
+    }));
+
     try {
       const result = await mutation.mutateAsync({
         evaluacionId,
-        riesgo,
-        recomendacion,
-        secciones: sections.map((section) => ({
-          seccion: section,
-          observacion: observaciones[section] ?? defaultObservaciones[section] ?? "",
-        })),
+        criterios,
+        observaciones: observacionesGenerales,
         enviar,
       });
-      toast.success(enviar ? "Evaluación enviada" : "Avance guardado", result.message);
-    } catch (error) {
+
+      const detalle = result.puntajeTotal !== null
+        ? `Total: ${result.puntajeTotal} / ${puntajeTotalMax}`
+        : undefined;
+
+      toast.success(enviar ? "Evaluación enviada" : "Avance guardado", detalle);
+    } catch (err) {
       toast.error(
         enviar ? "No se pudo enviar la evaluación" : "No se pudo guardar el avance",
-        error instanceof Error ? error.message : undefined,
+        err instanceof Error ? err.message : undefined,
       );
     }
   };
@@ -130,10 +205,10 @@ export default function EvaluacionEticaPage() {
     try {
       const result = await conflictoMutation.mutateAsync(evaluacionId);
       toast.success("Conflicto de interés registrado", result.message);
-    } catch (error) {
+    } catch (err) {
       toast.error(
         "No se pudo declarar el conflicto",
-        error instanceof Error ? error.message : undefined,
+        err instanceof Error ? err.message : undefined,
       );
     }
   };
@@ -172,7 +247,7 @@ export default function EvaluacionEticaPage() {
       }
 
       setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
-    } catch (error) {
+    } catch (err) {
       if (documentoPrincipal.url) {
         if (mode === "preview") {
           window.open(documentoPrincipal.url, "_blank", "noopener,noreferrer");
@@ -193,7 +268,7 @@ export default function EvaluacionEticaPage() {
       }
 
       setDocumentoError(
-        error instanceof Error ? error.message : "No se pudo obtener el documento principal.",
+        err instanceof Error ? err.message : "No se pudo obtener el documento principal.",
       );
     }
   };
@@ -205,289 +280,315 @@ export default function EvaluacionEticaPage() {
         description={`Expediente ${data.expediente.codigo} · ${data.expediente.titulo}`}
       />
       <div className="grid gap-6 xl:grid-cols-2">
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Resumen del expediente</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <p>
-              <strong>Codigo:</strong> {data.expediente.codigo}
-            </p>
-            <p>
-              <strong>Evaluacion:</strong> #{data.evaluacion.id}
-            </p>
-            <p>
-              <strong>Titulo:</strong> {data.expediente.titulo}
-            </p>
-            <p>
-              <strong>Facultad:</strong> {data.expediente.facultad}
-            </p>
-            <p>
-              <strong>Tipo:</strong> {data.expediente.tipoTramite}
-            </p>
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Resumen del expediente</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <p>
+                <strong>Codigo:</strong> {data.expediente.codigo}
+              </p>
+              <p>
+                <strong>Evaluacion:</strong> #{data.evaluacion.id}
+              </p>
+              <p>
+                <strong>Titulo:</strong> {data.expediente.titulo}
+              </p>
+              <p>
+                <strong>Facultad:</strong> {data.expediente.facultad}
+              </p>
+              <p>
+                <strong>Tipo:</strong> {data.expediente.tipoTramite}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Investigador del expediente</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <p>
+                <strong>Nombre:</strong>{" "}
+                {data.investigador?.nombre || data.expediente.investigadorPrincipal}
+              </p>
+              <p>
+                <strong>Correo:</strong> {data.investigador?.correo ?? "No disponible"}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Documento principal para revisión</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {documentoPrincipal ? (
+                <>
+                  <p>
+                    <strong>Archivo:</strong> {documentoPrincipal.nombre}
+                  </p>
+                  <p>
+                    <strong>Tipo:</strong> {documentoPrincipal.tipo}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => descargarDocumentoPrincipal("preview")}
+                      disabled={documentoMutation.isPending}
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Previsualizar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => descargarDocumentoPrincipal("download")}
+                      disabled={documentoMutation.isPending}
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Descargar
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <p className="text-muted-foreground">
+                  No hay documentos disponibles para este expediente en este momento.
+                </p>
+              )}
+
+              {documentoError ? <p className="text-destructive">{documentoError}</p> : null}
+            </CardContent>
+          </Card>
+
+          <Card className="border-[#6941C6]/30 bg-[#F3EDFF]">
+            <CardHeader>
+              <CardTitle className="text-[#6941C6]">Apoyo IA</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm text-[#4A3A88]">
+              {preanalisisQuery.isLoading ||
+              inconsistenciasQuery.isLoading ||
+              observacionesIAQuery.isLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-5/6" />
+                  <Skeleton className="h-4 w-2/3" />
+                </div>
+              ) : null}
+
+              {preanalisisQuery.isError ||
+              inconsistenciasQuery.isError ||
+              observacionesIAQuery.isError ? (
+                <p className="text-destructive">
+                  {(preanalisisQuery.error as Error | undefined)?.message ||
+                    (inconsistenciasQuery.error as Error | undefined)?.message ||
+                    (observacionesIAQuery.error as Error | undefined)?.message ||
+                    "No se pudo recuperar el apoyo IA."}
+                </p>
+              ) : null}
+
+              {!preanalisisQuery.isLoading &&
+              !inconsistenciasQuery.isLoading &&
+              !observacionesIAQuery.isLoading &&
+              !preanalisisQuery.isError &&
+              !inconsistenciasQuery.isError &&
+              !observacionesIAQuery.isError ? (
+                <div className="space-y-2">
+                  <p>
+                    <strong>Resumen IA:</strong> {preanalisisQuery.data?.resumenIA}
+                  </p>
+
+                  {preanalisisQuery.data?.recomendaciones?.length ? (
+                    <div>
+                      <p className="font-medium">Recomendaciones:</p>
+                      <ul className="list-disc space-y-1 pl-5">
+                        {preanalisisQuery.data.recomendaciones.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  {inconsistenciasQuery.data?.inconsistencias?.length ? (
+                    <div>
+                      <p className="font-medium">Inconsistencias detectadas:</p>
+                      <ul className="list-disc space-y-1 pl-5">
+                        {inconsistenciasQuery.data.inconsistencias.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <p>Sin inconsistencias detectadas por IA.</p>
+                  )}
+
+                  {observacionesIAQuery.data?.observacionesSugeridas?.length ? (
+                    <div>
+                      <p className="font-medium">Observaciones sugeridas:</p>
+                      <ul className="list-disc space-y-1 pl-5">
+                        {observacionesIAQuery.data.observacionesSugeridas.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <p>Sin observaciones sugeridas por IA.</p>
+                  )}
+
+                  {preanalisisQuery.data?.isPlaceholder ||
+                  inconsistenciasQuery.data?.isPlaceholder ||
+                  observacionesIAQuery.data?.isPlaceholder ? (
+                    <p className="font-medium">Resultado preliminar: puede requerir revisión manual.</p>
+                  ) : null}
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+        </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Investigador del expediente</CardTitle>
+            <CardTitle>Rúbrica de evaluación</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <p>
-              <strong>Nombre:</strong>{" "}
-              {data.investigador?.nombre || data.expediente.investigadorPrincipal}
-            </p>
-            <p>
-              <strong>Correo:</strong> {data.investigador?.correo ?? "No disponible"}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Documento principal para revisión</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            {documentoPrincipal ? (
+          <CardContent className="space-y-5">
+            {rubricaQuery.isLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+              </div>
+            ) : rubricaQuery.isError ? (
+              <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>
+                  {rubricaQuery.error instanceof Error
+                    ? rubricaQuery.error.message
+                    : "No se pudo cargar la rúbrica oficial."}
+                </AlertDescription>
+              </Alert>
+            ) : rubricaQuery.data ? (
               <>
-                <p>
-                  <strong>Archivo:</strong> {documentoPrincipal.nombre}
-                </p>
-                <p>
-                  <strong>Tipo:</strong> {documentoPrincipal.tipo}
-                </p>
-                <div className="flex flex-wrap gap-2">
+                {rubricaQuery.data.criterios.map((criterio, index) => {
+                  const value = criterioValues[criterio.key] ?? { puntaje: 0, observacion: "" };
+                  const opciones = Array.from(
+                    { length: criterio.puntajeMax + 1 },
+                    (_, i) => i,
+                  );
+
+                  return (
+                    <div
+                      key={criterio.key}
+                      className="space-y-3 rounded-md border border-border p-4"
+                    >
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-foreground">
+                          {index + 1}. {criterio.nombre}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{criterio.descripcion}</p>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Label
+                          htmlFor={`puntaje-${criterio.key}`}
+                          className="text-sm text-muted-foreground"
+                        >
+                          Puntaje
+                        </Label>
+                        <Select
+                          value={String(value.puntaje)}
+                          onValueChange={(next) => setPuntaje(criterio.key, Number(next))}
+                        >
+                          <SelectTrigger id={`puntaje-${criterio.key}`} className="w-24">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {opciones.map((opcion) => (
+                              <SelectItem key={opcion} value={String(opcion)}>
+                                {opcion}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <span className="text-sm text-muted-foreground">
+                          / {criterio.puntajeMax}
+                        </span>
+                      </div>
+
+                      <Textarea
+                        rows={2}
+                        value={value.observacion}
+                        onChange={(event) => setObservacion(criterio.key, event.target.value)}
+                        placeholder={`Observación para ${criterio.nombre} (opcional)`}
+                      />
+                    </div>
+                  );
+                })}
+
+                <div className="space-y-2">
+                  <Label htmlFor="observaciones-generales" className="text-sm font-medium">
+                    Observaciones generales
+                  </Label>
+                  <Textarea
+                    id="observaciones-generales"
+                    rows={3}
+                    value={observacionesGenerales}
+                    onChange={(event) => setObservacionesGenerales(event.target.value)}
+                    placeholder="Comentarios generales de la evaluación (opcional)"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between rounded-md border border-border bg-muted/40 p-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total</p>
+                    <p className="text-2xl font-semibold text-foreground">
+                      {total} / {puntajeTotalMax}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="mb-1 text-sm text-muted-foreground">Resultado previsto</p>
+                    <StatusBadge status={resultadoLabel[resultadoPrevisto]} />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
                   <Button
-                    variant="outline"
-                    onClick={() => descargarDocumentoPrincipal("preview")}
-                    disabled={documentoMutation.isPending}
+                    onClick={declararConflicto}
+                    disabled={conflictoMutation.isPending || mutation.isPending}
+                    variant="destructive"
                   >
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Previsualizar
+                    Declarar conflicto
                   </Button>
                   <Button
+                    onClick={() => submit(false)}
+                    disabled={mutation.isPending}
                     variant="outline"
-                    onClick={() => descargarDocumentoPrincipal("download")}
-                    disabled={documentoMutation.isPending}
                   >
-                    <Download className="mr-2 h-4 w-4" />
-                    Descargar
+                    Guardar avance
+                  </Button>
+                  <Button onClick={() => submit(true)} disabled={mutation.isPending}>
+                    Enviar evaluación
                   </Button>
                 </div>
               </>
-            ) : (
-              <p className="text-muted-foreground">
-                No hay documentos disponibles para este expediente en este momento.
-              </p>
-            )}
-
-            {documentoError ? <p className="text-destructive">{documentoError}</p> : null}
-          </CardContent>
-        </Card>
-
-        <Card className="border-[#6941C6]/30 bg-[#F3EDFF]">
-          <CardHeader>
-            <CardTitle className="text-[#6941C6]">Apoyo IA</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-[#4A3A88]">
-            {preanalisisQuery.isLoading ||
-            inconsistenciasQuery.isLoading ||
-            riesgosQuery.isLoading ||
-            observacionesIAQuery.isLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-5/6" />
-                <Skeleton className="h-4 w-2/3" />
-              </div>
             ) : null}
 
-            {preanalisisQuery.isError ||
-            inconsistenciasQuery.isError ||
-            riesgosQuery.isError ||
-            observacionesIAQuery.isError ? (
-              <p className="text-destructive">
-                {(preanalisisQuery.error as Error | undefined)?.message ||
-                  (inconsistenciasQuery.error as Error | undefined)?.message ||
-                  (riesgosQuery.error as Error | undefined)?.message ||
-                  (observacionesIAQuery.error as Error | undefined)?.message ||
-                  "No se pudo recuperar el apoyo IA."}
-              </p>
+            {error ? (
+              <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>
+                  {error instanceof Error ? error.message : "No se pudo cargar la evaluacion."}
+                </AlertDescription>
+              </Alert>
             ) : null}
 
-            {!preanalisisQuery.isLoading &&
-            !inconsistenciasQuery.isLoading &&
-            !riesgosQuery.isLoading &&
-            !observacionesIAQuery.isLoading &&
-            !preanalisisQuery.isError &&
-            !inconsistenciasQuery.isError &&
-            !riesgosQuery.isError &&
-            !observacionesIAQuery.isError ? (
-              <div className="space-y-2">
-                <p>
-                  <strong>Resumen IA:</strong> {preanalisisQuery.data?.resumenIA}
-                </p>
-                <p>
-                  <strong>Nivel de riesgo sugerido:</strong> {riesgosQuery.data?.nivelRiesgo}
-                </p>
-
-                {preanalisisQuery.data?.recomendaciones?.length ? (
-                  <div>
-                    <p className="font-medium">Recomendaciones:</p>
-                    <ul className="list-disc space-y-1 pl-5">
-                      {preanalisisQuery.data.recomendaciones.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-
-                {inconsistenciasQuery.data?.inconsistencias?.length ? (
-                  <div>
-                    <p className="font-medium">Inconsistencias detectadas:</p>
-                    <ul className="list-disc space-y-1 pl-5">
-                      {inconsistenciasQuery.data.inconsistencias.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : (
-                  <p>Sin inconsistencias detectadas por IA.</p>
-                )}
-
-                {observacionesIAQuery.data?.observacionesSugeridas?.length ? (
-                  <div>
-                    <p className="font-medium">Observaciones sugeridas:</p>
-                    <ul className="list-disc space-y-1 pl-5">
-                      {observacionesIAQuery.data.observacionesSugeridas.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : (
-                  <p>Sin observaciones sugeridas por IA.</p>
-                )}
-
-                {preanalisisQuery.data?.isPlaceholder ||
-                inconsistenciasQuery.data?.isPlaceholder ||
-                riesgosQuery.data?.isPlaceholder ||
-                observacionesIAQuery.data?.isPlaceholder ? (
-                  <p className="font-medium">Resultado preliminar: puede requerir revisión manual.</p>
-                ) : null}
-              </div>
+            {conflictoMutation.isSuccess ? (
+              <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+                <AlertTitle>Conflicto registrado</AlertTitle>
+                <AlertDescription>{conflictoMutation.data.message}</AlertDescription>
+              </Alert>
             ) : null}
           </CardContent>
         </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Formulario de evaluacion etica</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {sections.map((section) => (
-            <div key={section} className="space-y-2">
-              <p className="text-sm font-medium text-foreground">{section}</p>
-              <Textarea
-                rows={3}
-                value={observaciones[section] ?? defaultObservaciones[section] ?? ""}
-                onChange={(event) =>
-                  setObservaciones((current) => ({
-                    ...current,
-                    [section]: event.target.value,
-                  }))
-                }
-                placeholder={`Observaciones para ${section}`}
-              />
-            </div>
-          ))}
-
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Nivel de riesgo</p>
-            <div className="flex gap-2">
-              {(["Bajo", "Medio", "Alto"] as const).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className={`rounded-md border px-3 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                    riesgo === option
-                      ? "border-primary bg-secondary font-medium text-secondary-foreground"
-                      : "border-border text-muted-foreground hover:bg-muted"
-                  }`}
-                  onClick={() => setDraftRiesgo(option)}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Recomendacion preliminar</p>
-            <div className="grid gap-2">
-              {(
-                [
-                  "Aprobar",
-                  "Aprobar con observaciones",
-                  "Solicitar subsanación",
-                ] as const
-              ).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className={`rounded-md border px-3 py-2 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                    recomendacion === option
-                      ? "border-primary bg-secondary font-medium text-secondary-foreground"
-                      : "border-border text-muted-foreground hover:bg-muted"
-                  }`}
-                  onClick={() => setDraftRecomendacion(option)}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <Button
-              onClick={declararConflicto}
-              disabled={conflictoMutation.isPending || mutation.isPending}
-              variant="destructive"
-            >
-              Declarar conflicto
-            </Button>
-            <Button onClick={() => submit(false)} disabled={mutation.isPending} variant="outline">
-              Guardar avance
-            </Button>
-            <Button onClick={() => submit(true)} disabled={mutation.isPending}>
-              Enviar evaluacion
-            </Button>
-          </div>
-
-          {error ? (
-            <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>
-                {error instanceof Error ? error.message : "No se pudo cargar la evaluacion."}
-              </AlertDescription>
-            </Alert>
-          ) : null}
-
-          {conflictoMutation.isSuccess ? (
-            <Alert className="border-amber-200 bg-amber-50 text-amber-900">
-              <AlertTitle>Conflicto registrado</AlertTitle>
-              <AlertDescription>{conflictoMutation.data.message}</AlertDescription>
-            </Alert>
-          ) : null}
-
-          {mutation.isSuccess ? (
-            <Alert className="border-emerald-200 bg-emerald-50 text-emerald-900">
-              <AlertTitle>Operacion exitosa</AlertTitle>
-              <AlertDescription>{mutation.data.message}</AlertDescription>
-            </Alert>
-          ) : null}
-        </CardContent>
-      </Card>
       </div>
     </div>
   );

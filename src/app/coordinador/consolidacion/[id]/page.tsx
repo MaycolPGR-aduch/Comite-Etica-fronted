@@ -151,7 +151,6 @@ export default function ConsolidacionDictamenPage() {
             {data.evaluaciones.map((evaluacion, index) => (
               <div key={evaluacion.id} className="rounded-md border border-border p-3">
                 <p className="font-medium">Evaluador {index + 1}</p>
-                <p className="text-sm text-muted-foreground">Riesgo: {evaluacion.riesgo}</p>
                 <p className="text-sm text-muted-foreground">
                   Recomendacion: {evaluacion.recomendacion}
                 </p>

@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   asignacionService,
   authService,
+  configService,
   configuracionService,
   consolidacionService,
   dashboardService,
@@ -19,15 +20,14 @@ import {
 } from "@/services";
 import type { DictamenArchivoResponse } from "@/services/dictamen.service";
 import type {
-  Evaluacion,
+  CreateUserPayload,
+  CriterioEvaluado,
   ExpedienteStatus,
   NotificacionCreatePayload,
   LoginPayload,
   RegisterPayload,
-  Recommendation,
   ReporteExportResult,
   Role,
-  RiskLevel,
 } from "@/types";
 
 export const queryKeys = {
@@ -39,6 +39,7 @@ export const queryKeys = {
   bandejaEvaluador: ["dashboard", "evaluador"] as const,
   evaluaciones: ["evaluaciones"] as const,
   evaluacion: (id: string) => ["evaluaciones", id] as const,
+  rubrica: ["rubrica"] as const,
   asignacionContexto: (id: string) => ["asignacion", id] as const,
   evaluadores: ["evaluadores"] as const,
   consolidacion: (id: string) => ["consolidacion", id] as const,
@@ -52,7 +53,6 @@ export const queryKeys = {
   notificacionesSinLeer: ["notificaciones", "sin-leer"] as const,
   iaPreanalisis: (expedienteId: string) => ["ia", "preanalisis", expedienteId] as const,
   iaInconsistencias: (expedienteId: string) => ["ia", "inconsistencias", expedienteId] as const,
-  iaRiesgos: (expedienteId: string) => ["ia", "riesgos", expedienteId] as const,
   iaObservaciones: (expedienteId: string) => ["ia", "observaciones", expedienteId] as const,
   iaResumen: (expedienteId: string) => ["ia", "resumen", expedienteId] as const,
   reportesExpedientesEstado: ["reportes", "expedientes-estado"] as const,
@@ -174,6 +174,44 @@ export const useExpedienteDetalle = (id: string) =>
 
 export const useCrearBorrador = () =>
   useMutation({ mutationFn: expedientesService.createDraft });
+
+export const useExpedienteCatalogos = () =>
+  useQuery({
+    queryKey: ["expediente-catalogos"],
+    queryFn: () => expedientesService.getCatalogos(),
+  });
+
+export const useCrearExpedienteDinamico = () =>
+  useMutation({ mutationFn: expedientesService.createExpedienteDinamico });
+
+export const useCrearCambioTitulo = () =>
+  useMutation({ mutationFn: expedientesService.createCambioTitulo });
+
+export const useEliminarExpediente = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => expedientesService.deleteExpediente(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["expedientes"] });
+    },
+  });
+};
+
+export const useFechaLimite = () =>
+  useQuery({
+    queryKey: ["fecha-limite"],
+    queryFn: () => configService.getFechaLimite(),
+  });
+
+export const useSetFechaLimite = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (fechaLimite: string | null) => configService.setFechaLimite(fechaLimite),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["fecha-limite"] });
+    },
+  });
+};
 
 export const useRegistrarDocumentoExpediente = () =>
   useMutation({
@@ -343,13 +381,6 @@ export const useIAInconsistencias = (expedienteId: string) =>
     enabled: Boolean(expedienteId),
   });
 
-export const useIARiesgos = (expedienteId: string) =>
-  useQuery({
-    queryKey: queryKeys.iaRiesgos(expedienteId),
-    queryFn: () => iaService.getRiesgos(expedienteId),
-    enabled: Boolean(expedienteId),
-  });
-
 export const useIAObservacionesSugeridas = (expedienteId: string) =>
   useQuery({
     queryKey: queryKeys.iaObservaciones(expedienteId),
@@ -377,17 +408,23 @@ export const useDeclararConflictoEvaluacion = () => {
   });
 };
 
-export const useGuardarEvaluacion = () => {
+export const useRubrica = () =>
+  useQuery({
+    queryKey: queryKeys.rubrica,
+    queryFn: () => evaluacionService.getRubrica(),
+    staleTime: 1000 * 60 * 60,
+  });
+
+export const useGuardarRubrica = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (payload: {
       evaluacionId: string;
-      riesgo: RiskLevel;
-      recomendacion: Recommendation;
-      secciones: Evaluacion["secciones"];
+      criterios: CriterioEvaluado[];
+      observaciones?: string;
       enviar: boolean;
-    }) => evaluacionService.saveEvaluacion(payload),
+    }) => evaluacionService.saveRubrica(payload),
     onSuccess: (_, payload) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.evaluacion(payload.evaluacionId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.bandejaEvaluador });
@@ -563,6 +600,17 @@ export const useUserById = (id: string) =>
     queryFn: () => usersService.getById(id),
     enabled: Boolean(id),
   });
+
+export const useCreateUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: CreateUserPayload) => usersService.create(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.users });
+    },
+  });
+};
 
 export const useUpdateUser = () => {
   const queryClient = useQueryClient();

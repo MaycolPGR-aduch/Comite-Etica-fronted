@@ -3,15 +3,17 @@
 import { useMemo, useState } from "react";
 
 import {
+  useCreateUser,
   useDeactivateUser,
   useUpdateUser,
   useUserById,
   useUsers,
 } from "@/hooks";
-import type { Role } from "@/types";
+import type { InternalRole, Role } from "@/types";
 import { PageHeader, TableSkeleton, useConfirm } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
 import {
@@ -39,7 +41,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+// Opciones para EDITAR un usuario existente (incluye los roles auto-registrables
+// para que el rol de estudiantes/investigadores se muestre bien en el selector).
 const ROLE_OPTIONS: Array<{ value: Role; label: string }> = [
+  { value: "estudiante_pregrado", label: "Estudiante de pregrado" },
+  { value: "estudiante_postgrado", label: "Estudiante de postgrado" },
   { value: "investigador", label: "Investigador" },
   { value: "secretaria", label: "Secretaria tecnica" },
   { value: "coordinador", label: "Coordinador" },
@@ -47,8 +53,26 @@ const ROLE_OPTIONS: Array<{ value: Role; label: string }> = [
   { value: "administrador", label: "Administrador" },
 ];
 
+// El administrador SOLO puede CREAR credenciales de roles internos.
+// Los estudiantes (pregrado/postgrado) e investigadores se auto-registran.
+const INTERNAL_ROLE_OPTIONS: Array<{ value: InternalRole; label: string }> = [
+  { value: "secretaria", label: "Secretaria tecnica" },
+  { value: "coordinador", label: "Coordinador" },
+  { value: "evaluador", label: "Evaluador" },
+  { value: "administrador", label: "Administrador" },
+];
+
+const EMPTY_CREATE_FORM = {
+  nombre: "",
+  apellido: "",
+  email: "",
+  password: "",
+  rol: "secretaria" as InternalRole,
+};
+
 export default function UsuariosAdminPage() {
   const { data: users = [], isLoading, error } = useUsers();
+  const createUserMutation = useCreateUser();
   const updateUserMutation = useUpdateUser();
   const deactivateUserMutation = useDeactivateUser();
   const confirm = useConfirm();
@@ -58,6 +82,51 @@ export default function UsuariosAdminPage() {
   const [draftRole, setDraftRole] = useState<Role | null>(null);
   const [draftActivo, setDraftActivo] = useState<boolean | null>(null);
   const [uiError, setUiError] = useState<string | null>(null);
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState(EMPTY_CREATE_FORM);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const openCreateDialog = () => {
+    setCreateError(null);
+    setCreateForm(EMPTY_CREATE_FORM);
+    setCreateOpen(true);
+  };
+
+  const handleCreate = async () => {
+    setCreateError(null);
+
+    const nombre = createForm.nombre.trim();
+    const apellido = createForm.apellido.trim();
+    const email = createForm.email.trim();
+
+    if (!nombre || !apellido || !email || !createForm.password) {
+      setCreateError("Completa todos los campos.");
+      return;
+    }
+    if (createForm.password.length < 8) {
+      setCreateError("La contraseña debe tener al menos 8 caracteres.");
+      return;
+    }
+
+    try {
+      await createUserMutation.mutateAsync({
+        nombre,
+        apellido,
+        email,
+        password: createForm.password,
+        rol: createForm.rol,
+      });
+      setCreateOpen(false);
+      setCreateForm(EMPTY_CREATE_FORM);
+      toast.success("Usuario creado", "La credencial interna se creó correctamente.");
+    } catch (createErr) {
+      const message =
+        createErr instanceof Error ? createErr.message : "No se pudo crear el usuario.";
+      setCreateError(message);
+      toast.error("No se pudo crear el usuario", message);
+    }
+  };
 
   const {
     data: selectedUser,
@@ -135,10 +204,15 @@ export default function UsuariosAdminPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Gestión de usuarios"
-        description="Listar, ver detalle, actualizar y desactivar usuarios del sistema."
-      />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <PageHeader
+          title="Gestión de usuarios"
+          description="Listar, ver detalle, actualizar y desactivar usuarios del sistema."
+        />
+        <Button onClick={openCreateDialog} className="font-semibold">
+          + Crear usuario interno
+        </Button>
+      </div>
       <Card>
         <CardContent className="space-y-4 pt-6">
           {uiError ? (
@@ -302,6 +376,109 @@ export default function UsuariosAdminPage() {
               }
             >
               {updateUserMutation.isPending ? "Guardando..." : "Guardar cambios"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) {
+            setCreateForm(EMPTY_CREATE_FORM);
+            setCreateError(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Crear usuario interno</DialogTitle>
+            <DialogDescription>
+              Solo para roles del comité (secretaría, coordinador, evaluador, administrador).
+              Los estudiantes e investigadores se registran por su cuenta.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="create-nombre">Nombre</Label>
+                <Input
+                  id="create-nombre"
+                  value={createForm.nombre}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, nombre: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="create-apellido">Apellido</Label>
+                <Input
+                  id="create-apellido"
+                  value={createForm.apellido}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, apellido: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create-email">Correo institucional</Label>
+              <Input
+                id="create-email"
+                type="email"
+                value={createForm.email}
+                onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create-password">Contraseña</Label>
+              <Input
+                id="create-password"
+                type="password"
+                placeholder="Mínimo 8 caracteres"
+                value={createForm.password}
+                onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create-rol">Rol</Label>
+              <Select
+                value={createForm.rol}
+                onValueChange={(value) =>
+                  setCreateForm((f) => ({ ...f, rol: value as InternalRole }))
+                }
+              >
+                <SelectTrigger id="create-rol">
+                  <SelectValue placeholder="Selecciona rol" />
+                </SelectTrigger>
+                <SelectContent>
+                  {INTERNAL_ROLE_OPTIONS.map((role) => (
+                    <SelectItem key={role.value} value={role.value}>
+                      {role.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {createError ? (
+              <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                {createError}
+              </p>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button
+              onClick={() => setCreateOpen(false)}
+              variant="outline"
+              disabled={createUserMutation.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleCreate} disabled={createUserMutation.isPending}>
+              {createUserMutation.isPending ? "Creando..." : "Crear usuario"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -10,7 +10,6 @@ const toComparativaEvaluacion = (
   id: evaluacion.id,
   expedienteId: evaluacion.expedienteId,
   evaluadorId: evaluacion.evaluadorId,
-  riesgo: evaluacion.nivelRiesgo ?? "Medio",
   recomendacion: evaluacion.recommendation ?? "Aprobar con observaciones",
   secciones: parseSecciones(evaluacion.observaciones),
   estado: evaluacion.completa ? "Enviada" : "Borrador",
@@ -82,12 +81,6 @@ export const consolidacionService = {
     const discrepancias: string[] = [];
 
     if (evaluacion1 && evaluacion2) {
-      if (evaluacion1.riesgo === evaluacion2.riesgo) {
-        coincidencias.push(`Nivel de riesgo: ${evaluacion1.riesgo}`);
-      } else {
-        discrepancias.push(`Riesgo: ${evaluacion1.riesgo} vs ${evaluacion2.riesgo}`);
-      }
-
       if (evaluacion1.recomendacion === evaluacion2.recomendacion) {
         coincidencias.push(`Recomendación: ${evaluacion1.recomendacion}`);
       } else {

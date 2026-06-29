@@ -27,7 +27,7 @@ export const dashboardService = {
     const recientes = sortByDateDesc(expedientes).slice(0, 5);
 
     const metricas: Metrica[] = [
-      { id: "mi-total", titulo: "Mis expedientes", valor: expedientes.length },
+      { id: "mi-total", titulo: "Mis proyectos", valor: expedientes.length },
       {
         id: "mi-borrador",
         titulo: "Borradores",

@@ -209,7 +209,6 @@ export const reportesService = {
           investigadorId: toString(row.investigador_id),
           tipoTramite: toString(row.tipo_tramite),
           facultad: toString(row.facultad),
-          prioridad: toString(row.prioridad),
           estado: toString(row.estado),
           fechaEnvio: toString(row.fecha_envio) || undefined,
           fechaCreacion: toString(row.created_at) || toString(row.fecha_creacion) || undefined,

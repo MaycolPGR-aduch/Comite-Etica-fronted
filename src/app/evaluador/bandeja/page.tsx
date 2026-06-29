@@ -32,10 +32,9 @@ export default function BandejaEvaluadorPage() {
             row.id,
             row.expedienteId,
             row.expedienteTitulo ?? "",
-            row.nivelRiesgo ?? "",
             row.estado,
           ]}
-          searchPlaceholder="Buscar por evaluación, expediente o riesgo"
+          searchPlaceholder="Buscar por evaluación o expediente"
           statusAccessor={(row) => row.estado}
           statusOptions={["En progreso", "Completada", "Conflicto de interes"]}
           columns={[
@@ -45,11 +44,6 @@ export default function BandejaEvaluadorPage() {
               key: "expedienteTitulo",
               header: "Titulo del expediente",
               cell: (row) => row.expedienteTitulo ?? "Sin titulo",
-            },
-            {
-              key: "riesgo",
-              header: "Riesgo",
-              cell: (row) => row.nivelRiesgo ?? "Sin definir",
             },
             {
               key: "estado",

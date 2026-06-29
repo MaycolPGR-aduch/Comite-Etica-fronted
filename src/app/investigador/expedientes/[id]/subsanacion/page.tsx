@@ -27,7 +27,7 @@ export default function SubsanacionPage() {
     return (
       <EmptyState
         title="Sin datos"
-        description="No se encontro informacion para subsanar este expediente."
+        description="No se encontro informacion para subsanar este proyecto."
       />
     );
   }
@@ -40,9 +40,9 @@ export default function SubsanacionPage() {
 
   const onSubmit = async () => {
     const confirmed = await confirm({
-      title: "Reenviar expediente",
+      title: "Reenviar proyecto",
       description:
-        "El expediente subsanado se reenviará al Comité de Ética para una nueva revisión. ¿Deseas continuar?",
+        "El proyecto subsanado se reenviará al Comité de Ética para una nueva revisión. ¿Deseas continuar?",
       confirmLabel: "Reenviar",
     });
     if (!confirmed) return;
@@ -55,7 +55,7 @@ export default function SubsanacionPage() {
       toast.success("Subsanación enviada", result.message);
     } catch (error) {
       toast.error(
-        "No se pudo reenviar el expediente",
+        "No se pudo reenviar el proyecto",
         error instanceof Error ? error.message : undefined,
       );
     }
@@ -65,14 +65,14 @@ export default function SubsanacionPage() {
     <div className="space-y-6">
       <PageHeader
         title="Subsanación de observaciones"
-        description="Responde a las observaciones del Comité y reenvía el expediente para una nueva revisión."
+        description="Responde a las observaciones del Comité y reenvía el proyecto para una nueva revisión."
       />
       <Card>
         <CardContent className="space-y-4 pt-6">
           {!hasObservaciones ? (
             <Alert>
               <AlertTitle>Sin observaciones pendientes</AlertTitle>
-              <AlertDescription>El expediente no requiere subsanacion actualmente.</AlertDescription>
+              <AlertDescription>El proyecto no requiere subsanacion actualmente.</AlertDescription>
             </Alert>
           ) : (
             <div className="space-y-4">
@@ -109,7 +109,7 @@ export default function SubsanacionPage() {
           </div>
 
           <Button onClick={onSubmit} disabled={!canSubmit}>
-            {reenviarMutation.isPending ? "Reenviando..." : "Reenviar expediente"}
+            {reenviarMutation.isPending ? "Reenviando..." : "Reenviar proyecto"}
           </Button>
 
           {reenviarMutation.isSuccess ? (

@@ -7,18 +7,26 @@ export interface NavItem {
 
 export const roleLabel: Record<Role, string> = {
   investigador: "Investigador",
+  estudiante_pregrado: "Estudiante de pregrado",
+  estudiante_postgrado: "Estudiante de postgrado",
   secretaria: "Secretaria tecnica",
   coordinador: "Coordinador",
   evaluador: "Evaluador",
   administrador: "Administrador",
 };
 
+// Los 3 roles auto-registrables comparten la misma navegación funcional.
+const solicitanteNav: NavItem[] = [
+  { href: "/investigador/dashboard", label: "Dashboard" },
+  { href: "/investigador/expedientes/nuevo", label: "Nuevo proyecto" },
+  { href: "/investigador/cambio-titulo", label: "Cambiar título" },
+  { href: "/investigador/expedientes", label: "Mis proyectos" },
+];
+
 export const roleNavigation: Record<Role, NavItem[]> = {
-  investigador: [
-    { href: "/investigador/dashboard", label: "Dashboard" },
-    { href: "/investigador/expedientes/nuevo", label: "Nuevo expediente" },
-    { href: "/investigador/expedientes", label: "Mis expedientes" },
-  ],
+  investigador: solicitanteNav,
+  estudiante_pregrado: solicitanteNav,
+  estudiante_postgrado: solicitanteNav,
   secretaria: [
     { href: "/secretaria/bandeja", label: "Bandeja" },
     { href: "/secretaria/bandeja", label: "Revision administrativa" },
@@ -42,6 +50,8 @@ export const roleNavigation: Record<Role, NavItem[]> = {
 
 export const roleProfilePath: Record<Role, string> = {
   investigador: "/investigador/perfil",
+  estudiante_pregrado: "/investigador/perfil",
+  estudiante_postgrado: "/investigador/perfil",
   secretaria: "/secretaria/perfil",
   coordinador: "/coordinador/perfil",
   evaluador: "/evaluador/perfil",

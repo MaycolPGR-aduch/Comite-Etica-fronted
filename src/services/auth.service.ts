@@ -14,7 +14,10 @@ import type {
 import { clearAuthSession, getAuthToken, getAuthUser, persistAuthSession } from "./auth-session";
 
 const redirectByRole: Record<Role, string> = {
+  // Los 3 roles auto-registrables comparten la misma vista funcional.
   investigador: "/investigador/dashboard",
+  estudiante_pregrado: "/investigador/dashboard",
+  estudiante_postgrado: "/investigador/dashboard",
   secretaria: "/secretaria/bandeja",
   coordinador: "/coordinador/dashboard",
   evaluador: "/evaluador/bandeja",
@@ -23,6 +26,8 @@ const redirectByRole: Record<Role, string> = {
 
 const roleSet = new Set<Role>([
   "investigador",
+  "estudiante_pregrado",
+  "estudiante_postgrado",
   "secretaria",
   "coordinador",
   "evaluador",
@@ -58,6 +63,8 @@ const toRegisterRequest = (payload: RegisterPayload) => ({
   especialidad: payload.especialidad,
   carga_trabajo: payload.carga_trabajo,
   conflicto_interes: payload.conflicto_interes,
+  codigo_estudiante: payload.codigo_estudiante,
+  laboratorio: payload.laboratorio,
 });
 
 const resolveErrorMessage = (error: unknown): string => {
@@ -103,11 +110,7 @@ export const authService = {
 
       const usuario = toDomainUser(profileResponse.data);
 
-      if (usuario.role !== payload.role) {
-        clearAuthSession();
-        throw new Error("Error de inicio de sesión, revise sus credenciales.");
-      }
-
+      // Login unificado: el rol se deriva del usuario, no se elige en el formulario.
       persistAuthSession(token, usuario);
 
       return {

@@ -1,226 +1,260 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useMemo, useState } from "react";
-import { useForm, useWatch } from "react-hook-form";
-import { z } from "zod";
+import axios from "axios";
+import { useEffect, useMemo, useState } from "react";
+import { useFieldArray, useForm } from "react-hook-form";
 
 import {
-  useCrearBorrador,
+  useCrearExpedienteDinamico,
   useEnviarExpediente,
+  useExpedienteCatalogos,
+  useFechaLimite,
   useRegistrarDocumentoExpediente,
 } from "@/hooks";
 import {
+  DOCUMENT_FORMATS,
   DOCUMENT_UPLOAD_ACCEPTED_EXTENSIONS,
-  DOCUMENT_UPLOAD_ACCEPTED_MIME_TYPES,
   DOCUMENT_UPLOAD_MAX_SIZE_BYTES,
   expedientesService,
+  plantillaUrl,
 } from "@/services/expedientes.service";
-import { getRequiredDocumentsByTipoTramite } from "@/lib/document-requirements";
-import type { Expediente } from "@/types";
-import { DocumentChecklist, PageHeader, useConfirm } from "@/components/shared";
+import { CountdownDeadline, PageHeader, useConfirm } from "@/components/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
 
-const TIPO_TRAMITE_OPTIONS = [
-  { value: "protocolo_estudiante", label: "Protocolo para estudiante" },
-  { value: "protocolo_tesista", label: "Protocolo para tesista/profesor" },
-] as const;
+const MODALIDAD_LABEL: Record<string, string> = {
+  pregrado: "Estudiante de pregrado",
+  postgrado: "Estudiante de postgrado",
+  interno: "Proyecto interno (investigador)",
+};
 
-const FACULTAD_OPTIONS = [
-  "Facultad de Medicina",
-  "Facultad de Enfermeria",
-  "Facultad de Odontologia",
-  "Facultad de Farmacia y Bioquimica",
-  "Facultad de Psicologia",
-  "Facultad de Ciencias de la Salud",
-  "Facultad de Ingenieria",
-  "Facultad de Derecho",
-  "Facultad de Educacion",
-  "Facultad de Ciencias Empresariales",
-];
+const STEPS = ["Datos e integrantes", "Documentos", "Revisar y enviar"];
 
-const schema = z.object({
-  titulo: z.string().min(10, "El titulo debe tener al menos 10 caracteres"),
-  tipoTramite: z.string().min(3, "Ingrese tipo de tramite"),
-  facultad: z.string().min(2, "Ingrese la facultad"),
-  prioridad: z.enum(["Alta", "Media", "Baja"]),
-  resumen: z.string().min(40, "El resumen debe tener al menos 40 caracteres"),
-});
+interface AutorForm {
+  apellidos_nombres: string;
+  codigo_estudiante: string;
+  correo: string;
+  telefono: string;
+}
 
-type FormData = z.infer<typeof schema>;
+interface FormData {
+  titulo: string;
+  programa: string;
+  ciclo: string;
+  nivel: string;
+  autores: AutorForm[];
+}
+
+const emptyAutor: AutorForm = {
+  apellidos_nombres: "",
+  codigo_estudiante: "",
+  correo: "",
+  telefono: "",
+};
+
+const parseFaltantes = (error: unknown): string[] | null => {
+  if (axios.isAxiosError(error)) {
+    const detail = error.response?.data?.detail;
+    if (detail && typeof detail === "object" && Array.isArray((detail as { faltantes?: unknown }).faltantes)) {
+      return (detail as { faltantes: string[] }).faltantes;
+    }
+    if (typeof detail === "string") return [detail];
+  }
+  if (error instanceof Error) return [error.message];
+  return null;
+};
 
 export default function NuevoExpedientePage() {
-  const [step, setStep] = useState(1);
-  const [wizardError, setWizardError] = useState<string | null>(null);
-  const [expedienteCreado, setExpedienteCreado] = useState<Expediente | null>(null);
-  const [selectedFiles, setSelectedFiles] = useState<Record<string, File | null>>({});
-  const [registeredDocs, setRegisteredDocs] = useState<Record<string, boolean>>({});
-  const [fileErrors, setFileErrors] = useState<Record<string, string | null>>({});
-
-  const createDraftMutation = useCrearBorrador();
-  const registrarDocumentoMutation = useRegistrarDocumentoExpediente();
-  const enviarExpedienteMutation = useEnviarExpediente();
+  const { data: catalogos, isLoading } = useExpedienteCatalogos();
+  const { data: fechaLimite } = useFechaLimite();
+  const crearMutation = useCrearExpedienteDinamico();
+  const registrarDocMutation = useRegistrarDocumentoExpediente();
+  const enviarMutation = useEnviarExpediente();
   const confirm = useConfirm();
 
+  const [step, setStep] = useState(1);
+  const [enviado, setEnviado] = useState(false);
+  const [expediente, setExpediente] = useState<{ id: string; codigo: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [faltantes, setFaltantes] = useState<string[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<Record<string, File | null>>({});
+  const [registeredDocs, setRegisteredDocs] = useState<Record<string, boolean>>({});
+  // Guía/plantilla que se está previsualizando en el modal (PDF o imagen).
+  const [guia, setGuia] = useState<{ url: string; title: string } | null>(null);
+
+  const modalidad = catalogos?.modalidad ?? null;
+  const esEstudiante = modalidad === "pregrado" || modalidad === "postgrado";
+  const esInterno = modalidad === "interno";
+
+  const requiredDocs = useMemo(
+    () => (modalidad ? catalogos?.documentos_requeridos[modalidad] ?? [] : []),
+    [catalogos, modalidad],
+  );
+
   const form = useForm<FormData>({
-    resolver: zodResolver(schema),
-    mode: "onChange",
-    defaultValues: {
-      titulo: "",
-      tipoTramite: "protocolo_estudiante",
-      facultad: FACULTAD_OPTIONS[0],
-      prioridad: "Media",
-      resumen: "",
-    },
+    defaultValues: { titulo: "", programa: "", ciclo: "", nivel: "", autores: [emptyAutor] },
   });
+  const { fields, append, remove } = useFieldArray({ control: form.control, name: "autores" });
 
-  const tipoTramiteSeleccionado = useWatch({
-    control: form.control,
-    name: "tipoTramite",
-  });
-  const requiredDocs = useMemo(() => {
-    return getRequiredDocumentsByTipoTramite(tipoTramiteSeleccionado);
-  }, [tipoTramiteSeleccionado]);
+  const docsComplete = requiredDocs.every((doc) => Boolean(selectedFiles[doc.tipo]));
+  const isWorking =
+    crearMutation.isPending || registrarDocMutation.isPending || enviarMutation.isPending;
 
-  const docsComplete = requiredDocs.every((doc) => Boolean(selectedFiles[doc.key]));
-  const docsRegistered = requiredDocs.every((doc) => registeredDocs[doc.key]);
-  const tramiteLocked = expedienteCreado !== null;
+  // Envíos cerrados si ya pasó la fecha límite (se evalúa en cliente).
+  const [ahora, setAhora] = useState<number | null>(null);
+  useEffect(() => {
+    setAhora(Date.now());
+  }, []);
+  const cerrado =
+    Boolean(fechaLimite) && ahora !== null && new Date(fechaLimite as string).getTime() < ahora;
 
-  const nextStep = async () => {
-    setWizardError(null);
+  // ---- Paso 1 -> 2: validar datos e integrantes ----
+  const handleContinuarDatos = () => {
+    setError(null);
+    const v = form.getValues();
 
-    if (step === 1) {
-      const valid = await form.trigger();
-      if (!valid) return;
+    if (v.titulo.trim().length < 10) return setError("El título debe tener al menos 10 caracteres.");
+    if (!v.programa) return setError("Selecciona el programa de estudios.");
+    if (modalidad === "pregrado" && !v.ciclo) return setError("Selecciona el ciclo.");
+    if (modalidad === "postgrado" && !v.nivel) return setError("Selecciona el nivel de posgrado.");
 
-      if (!expedienteCreado) {
-        try {
-          const values = form.getValues();
-          const draft = await createDraftMutation.mutateAsync(values);
-          setExpedienteCreado(draft);
-        } catch (error) {
-          const message =
-            error instanceof Error
-              ? error.message
-              : "No se pudo crear el expediente en backend.";
-          setWizardError(message);
-          return;
-        }
-      }
+    for (const [i, a] of v.autores.entries()) {
+      if (!a.apellidos_nombres.trim()) return setError(`Integrante ${i + 1}: falta apellidos y nombres.`);
+      if (!a.correo.trim()) return setError(`Integrante ${i + 1}: falta correo.`);
+      if (!a.telefono.trim()) return setError(`Integrante ${i + 1}: falta teléfono.`);
+      if (esEstudiante && !a.codigo_estudiante.trim())
+        return setError(`Integrante ${i + 1}: falta código de estudiante.`);
     }
 
-    if (step === 2) {
-      if (!docsComplete) {
-        setWizardError("Complete todo el checklist de documentos para continuar.");
-        return;
-      }
-
-      if (!expedienteCreado) {
-        setWizardError("No se encontró el expediente (borrador) para registrar documentos.");
-        return;
-      }
-
-      try {
-        const pendingDocs = requiredDocs.filter((doc) => !registeredDocs[doc.key]);
-
-        for (const doc of pendingDocs) {
-          const file = selectedFiles[doc.key];
-          if (!file) {
-            throw new Error(`Debe seleccionar archivo para: ${doc.label}.`);
-          }
-
-          await registrarDocumentoMutation.mutateAsync({
-            expedienteId: expedienteCreado.id,
-            file,
-            tipoDocumento: doc.tipoDocumento,
-            esObligatorio: true,
-          });
-        }
-
-        setRegisteredDocs((current) =>
-          pendingDocs.reduce<Record<string, boolean>>(
-            (acc, doc) => ({ ...acc, [doc.key]: true }),
-            { ...current },
-          ),
-        );
-      } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : "No se pudieron cargar los documentos.";
-        setWizardError(message);
-        return;
-      }
-    }
-
-    setStep((current) => Math.min(4, current + 1));
+    setStep(2);
   };
 
-  const prevStep = () => setStep((current) => Math.max(1, current - 1));
+  // ---- Paso 2 -> 3: validar documentos seleccionados ----
+  const handleContinuarDocumentos = () => {
+    setError(null);
+    if (!docsComplete) return setError("Adjunta todos los documentos requeridos.");
+    setStep(3);
+  };
 
-  const handleSubmit = form.handleSubmit(async () => {
-    setWizardError(null);
+  // ---- Paso 3: crear expediente, subir documentos y enviar ----
+  const handleEnviar = async () => {
+    setError(null);
+    setFaltantes([]);
 
-    if (!expedienteCreado) {
-      setWizardError("No hay expediente creado para enviar.");
+    if (cerrado) {
+      setError("Los envíos están cerrados: la fecha límite ya venció.");
       return;
     }
 
-    if (!docsRegistered) {
-      setWizardError("Debes registrar todos los documentos antes del envío.");
-      return;
-    }
-
-    const confirmed = await confirm({
-      title: "Enviar expediente",
-      description:
-        "El expediente se remitirá al Comité de Ética y dejará de ser un borrador editable. ¿Deseas enviarlo?",
-      confirmLabel: "Enviar expediente",
+    const ok = await confirm({
+      title: "Enviar al Comité de Ética",
+      description: "Se remitirá el proyecto y dejará de ser editable. ¿Deseas enviarlo?",
+      confirmLabel: "Enviar",
     });
-    if (!confirmed) return;
+    if (!ok) return;
 
     try {
-      await enviarExpedienteMutation.mutateAsync(expedienteCreado.id);
-      setStep(4);
-      toast.success("Expediente enviado", "El expediente fue remitido al Comité de Ética.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "No se pudo enviar el expediente.";
-      setWizardError(message);
-      toast.error("No se pudo enviar el expediente", message);
-    }
-  });
+      let exp = expediente;
+      if (!exp) {
+        const v = form.getValues();
+        exp = await crearMutation.mutateAsync({
+          titulo: v.titulo.trim(),
+          programaEstudios: v.programa,
+          ciclo: modalidad === "pregrado" ? v.ciclo : undefined,
+          nivelPosgrado: modalidad === "postgrado" ? v.nivel : undefined,
+          autores: v.autores.map((a) => ({
+            apellidos_nombres: a.apellidos_nombres.trim(),
+            codigo_estudiante: esInterno ? undefined : a.codigo_estudiante.trim(),
+            correo: a.correo.trim(),
+            telefono: a.telefono.trim(),
+          })),
+        });
+        setExpediente(exp);
+      }
 
-  const isWorking =
-    createDraftMutation.isPending ||
-    registrarDocumentoMutation.isPending ||
-    enviarExpedienteMutation.isPending;
+      for (const doc of requiredDocs.filter((d) => !registeredDocs[d.tipo])) {
+        const file = selectedFiles[doc.tipo];
+        if (!file) throw new Error(`Falta el archivo: ${doc.label}.`);
+        await registrarDocMutation.mutateAsync({
+          expedienteId: exp.id,
+          file,
+          tipoDocumento: doc.tipo,
+          esObligatorio: true,
+        });
+        setRegisteredDocs((cur) => ({ ...cur, [doc.tipo]: true }));
+      }
+
+      const result = await enviarMutation.mutateAsync(exp.id);
+      // El código formal (N-AÑO) se asigna al enviar; lo reflejamos en la confirmación.
+      setExpediente((prev) => (prev ? { ...prev, codigo: result.codigo ?? prev.codigo } : prev));
+      setEnviado(true);
+      toast.success("Proyecto enviado", "Tu proyecto fue remitido al Comité de Ética.");
+    } catch (e) {
+      const fs = parseFaltantes(e);
+      if (fs && fs.length > 1) {
+        setFaltantes(fs);
+        setError("El proyecto está incompleto. Revisa lo que falta.");
+      } else {
+        setError(fs?.[0] ?? "No se pudo enviar el proyecto.");
+      }
+      toast.error("No se pudo enviar", "Revisa los datos y vuelve a intentar.");
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <PageHeader title="Nuevo proyecto" description="Cargando formulario..." />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  if (!modalidad) {
+    return (
+      <div className="space-y-4">
+        <PageHeader title="Nuevo proyecto" description="Envío de proyectos al Comité de Ética." />
+        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
+          <AlertTitle>No disponible para tu rol</AlertTitle>
+          <AlertDescription>
+            Solo los estudiantes de pregrado, postgrado e investigadores pueden enviar proyectos.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Nuevo expediente"
-        description="Crea el expediente como borrador, carga los documentos requeridos y envíalo al Comité."
+        title="Nuevo proyecto"
+        description={`Modalidad detectada por tu rol: ${MODALIDAD_LABEL[modalidad]}.`}
       />
+
+      <CountdownDeadline fechaLimite={fechaLimite ?? null} variant="compact" />
+
       <Card>
         <CardContent className="pt-6">
-          <div className="mb-6 grid grid-cols-4 gap-2 text-xs font-medium">
-            {["Datos", "Documentos", "Revision", "Envio"].map((label, index) => {
+          <div className="mb-6 grid grid-cols-3 gap-2 text-xs font-medium">
+            {STEPS.map((label, index) => {
               const current = index + 1;
               const active = step >= current;
               return (
                 <div
                   key={label}
-                  className={`rounded-md px-3 py-2 text-center transition-colors ${
-                    active
-                      ? "bg-secondary text-secondary-foreground"
-                      : "bg-muted text-muted-foreground"
+                  className={`rounded-md px-3 py-2 text-center ${
+                    active ? "bg-secondary text-secondary-foreground" : "bg-muted text-muted-foreground"
                   }`}
                 >
                   {current}. {label}
@@ -229,229 +263,323 @@ export default function NuevoExpedientePage() {
             })}
           </div>
 
-          {wizardError ? (
+          {error ? (
             <Alert className="mb-4 border-destructive/30 bg-destructive/5 text-destructive">
-              <AlertTitle>Error en el flujo</AlertTitle>
-              <AlertDescription>{wizardError}</AlertDescription>
+              <AlertTitle>Atención</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}
 
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            {step === 1 ? (
+          {faltantes.length > 0 ? (
+            <Alert className="mb-4 border-amber-300 bg-amber-50 text-amber-900">
+              <AlertTitle>Falta completar:</AlertTitle>
+              <AlertDescription>
+                <ul className="list-disc pl-5">
+                  {faltantes.map((f) => (
+                    <li key={f}>{f}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          {/* ---------- PASO 1: Datos e integrantes ---------- */}
+          {step === 1 ? (
+            <div className="space-y-6">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="titulo">Titulo del protocolo</Label>
+                  <Label htmlFor="titulo">Título del proyecto</Label>
                   <Input id="titulo" {...form.register("titulo")} />
-                  {form.formState.errors.titulo ? (
-                    <p className="text-xs text-destructive">{form.formState.errors.titulo.message}</p>
-                  ) : null}
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="tipoTramite">Tipo de tramite</Label>
+                  <Label htmlFor="programa">Programa de estudios</Label>
                   <select
-                    id="tipoTramite"
+                    id="programa"
                     className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    disabled={tramiteLocked}
-                    {...form.register("tipoTramite")}
+                    {...form.register("programa")}
                   >
-                    {TIPO_TRAMITE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  {tramiteLocked ? (
-                    <p className="text-xs text-muted-foreground">
-                      Tipo de tramite bloqueado para mantener consistencia tras crear el borrador.
-                    </p>
-                  ) : null}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="facultad">Facultad</Label>
-                  <select
-                    id="facultad"
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    {...form.register("facultad")}
-                  >
-                    {FACULTAD_OPTIONS.map((facultad) => (
-                      <option key={facultad} value={facultad}>
-                        {facultad}
+                    <option value="">Seleccione…</option>
+                    {catalogos?.programas_estudios.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
                       </option>
                     ))}
                   </select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="prioridad">Prioridad</Label>
-                  <select
-                    id="prioridad"
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    {...form.register("prioridad")}
-                  >
-                    <option value="Alta">Alta</option>
-                    <option value="Media">Media</option>
-                    <option value="Baja">Baja</option>
-                  </select>
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="resumen">Resumen (UI)</Label>
-                  <Textarea id="resumen" rows={5} {...form.register("resumen")} />
-                  {form.formState.errors.resumen ? (
-                    <p className="text-xs text-destructive">{form.formState.errors.resumen.message}</p>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
 
-            {step === 2 ? (
-              <div className="space-y-4">
-                <Alert>
-                  <AlertTitle>Carga de documentos</AlertTitle>
-                  <AlertDescription>
-                    Seleccione un archivo por documento requerido para registrarlo en backend.
-                  </AlertDescription>
-                </Alert>
-                <Alert className="border-primary/30 bg-secondary text-secondary-foreground">
-                  <AlertTitle>Formatos y restricciones admitidas</AlertTitle>
-                  <AlertDescription>
-                    Formatos permitidos: {DOCUMENT_UPLOAD_ACCEPTED_EXTENSIONS.join(", ")}.
-                    <br />
-                    Tipos MIME permitidos: {DOCUMENT_UPLOAD_ACCEPTED_MIME_TYPES.join(", ")}.
-                    <br />
-                    Tamaño máximo por archivo: {Math.floor(DOCUMENT_UPLOAD_MAX_SIZE_BYTES / (1024 * 1024))} MB.
-                  </AlertDescription>
-                </Alert>
+                {modalidad === "pregrado" ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="ciclo">Ciclo</Label>
+                    <select
+                      id="ciclo"
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      {...form.register("ciclo")}
+                    >
+                      <option value="">Seleccione…</option>
+                      {catalogos?.ciclos.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
 
-                <div className="grid gap-2">
-                  {requiredDocs.map((doc) => (
-                    <div key={doc.key} className="space-y-2 rounded-md border p-3">
-                      <p className="text-sm font-medium">{doc.label}</p>
-                      <Input
-                        accept={DOCUMENT_UPLOAD_ACCEPTED_EXTENSIONS.join(",")}
-                        type="file"
-                        onChange={(event) => {
-                          const file = event.target.files?.[0] ?? null;
-                          if (file) {
-                            const error = expedientesService.validateDocumento(file);
-                            if (error) {
-                              setFileErrors((current) => ({ ...current, [doc.key]: error }));
-                              setSelectedFiles((current) => ({ ...current, [doc.key]: null }));
-                              setRegisteredDocs((current) => ({ ...current, [doc.key]: false }));
-                              setWizardError(`${doc.label}: ${error}`);
-                              event.currentTarget.value = "";
-                              return;
-                            }
-                          }
-
-                          setFileErrors((current) => ({ ...current, [doc.key]: null }));
-                          setSelectedFiles((current) => ({
-                            ...current,
-                            [doc.key]: file,
-                          }));
-                          setRegisteredDocs((current) => ({ ...current, [doc.key]: false }));
-                        }}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        {selectedFiles[doc.key]
-                          ? `Archivo: ${selectedFiles[doc.key]?.name}`
-                          : "Sin archivo seleccionado"}
-                      </p>
-                      {fileErrors[doc.key] ? (
-                        <p className="text-xs text-destructive">{fileErrors[doc.key]}</p>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-
-                {!docsComplete ? (
-                  <p className="text-sm text-amber-700">Debe seleccionar todos los archivos requeridos.</p>
+                {modalidad === "postgrado" ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="nivel">Nivel de posgrado</Label>
+                    <select
+                      id="nivel"
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      {...form.register("nivel")}
+                    >
+                      <option value="">Seleccione…</option>
+                      {catalogos?.niveles_posgrado.map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 ) : null}
               </div>
-            ) : null}
 
-            {step === 3 ? (
-              <div className="grid gap-6 lg:grid-cols-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Resumen del envío</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    <p>
-                      <strong>ID expediente:</strong> {expedienteCreado?.id}
-                    </p>
-                    <p>
-                      <strong>Código:</strong> {expedienteCreado?.codigo}
-                    </p>
-                    <p>
-                      <strong>Titulo:</strong> {form.getValues("titulo")}
-                    </p>
-                    <p>
-                      <strong>Tipo de tramite:</strong>{" "}
-                      {TIPO_TRAMITE_OPTIONS.find(
-                        (item) => item.value === form.getValues("tipoTramite"),
-                      )?.label ?? form.getValues("tipoTramite")}
-                    </p>
-                    <p>
-                      <strong>Facultad:</strong> {form.getValues("facultad")}
-                    </p>
-                    <p>
-                      <strong>Estado actual:</strong> {expedienteCreado?.estado}
-                    </p>
-                    <p>
-                      <strong>Prioridad:</strong> {form.getValues("prioridad")}
-                    </p>
-                  </CardContent>
-                </Card>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-semibold">Integrantes del proyecto</Label>
+                  <Button type="button" variant="secondary" size="sm" onClick={() => append(emptyAutor)}>
+                    + Agregar integrante
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  El primer integrante es el responsable / autor principal.
+                </p>
 
-                <DocumentChecklist
-                  enableFileActions={false}
-                  documents={requiredDocs.map((doc, index) => ({
-                    id: `${doc.key}-${index}`,
-                    nombre: doc.label,
-                    tipo: "Archivo",
-                    requerido: true,
-                    cargado: registeredDocs[doc.key] ?? false,
-                  }))}
-                />
+                {fields.map((field, index) => (
+                  <div key={field.id} className="space-y-3 rounded-md border p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">
+                        {index === 0 ? "Responsable (principal)" : `Integrante ${index + 1}`}
+                      </span>
+                      {index > 0 ? (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => remove(index)}>
+                          Quitar
+                        </Button>
+                      ) : null}
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1 md:col-span-2">
+                        <Label>Apellidos y nombres</Label>
+                        <Input
+                          placeholder="Ramos Castro José Carlos"
+                          {...form.register(`autores.${index}.apellidos_nombres` as const)}
+                        />
+                      </div>
+                      {esEstudiante ? (
+                        <div className="space-y-1">
+                          <Label>Código de estudiante</Label>
+                          <Input {...form.register(`autores.${index}.codigo_estudiante` as const)} />
+                        </div>
+                      ) : null}
+                      <div className="space-y-1">
+                        <Label>Correo electrónico</Label>
+                        <Input type="email" {...form.register(`autores.${index}.correo` as const)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Teléfono</Label>
+                        <Input {...form.register(`autores.${index}.telefono` as const)} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ) : null}
 
-            {step === 4 ? (
-              <Alert className="border-emerald-200 bg-emerald-50 text-emerald-900">
-                <AlertTitle>Expediente enviado</AlertTitle>
-                <AlertDescription>
-                  El expediente fue creado, se cargaron documentos y quedó enviado para revisión.
-                </AlertDescription>
-              </Alert>
-            ) : null}
+              <Button type="button" onClick={handleContinuarDatos}>
+                Continuar a documentos
+              </Button>
+            </div>
+          ) : null}
 
-            <div className="flex flex-wrap gap-3">
-              {step > 1 && step < 4 ? (
-                <Button onClick={prevStep} type="button" variant="outline" disabled={isWorking}>
+          {/* ---------- PASO 2: Documentos ---------- */}
+          {step === 2 ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Adjunta los {requiredDocs.length} documentos requeridos para {MODALIDAD_LABEL[modalidad]}.
+              </p>
+
+              {catalogos?.guia_nombres ? (
+                <Alert className="border-blue-200 bg-blue-50 text-blue-900">
+                  <AlertTitle>📂 Nombre de los archivos (importante)</AlertTitle>
+                  <AlertDescription className="space-y-2">
+                    <p>{catalogos.guia_nombres.texto}</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setGuia({
+                          url: plantillaUrl(catalogos.guia_nombres.key, "ver"),
+                          title: "Estructura del nombre de los archivos",
+                        })
+                      }
+                    >
+                      Ver guía
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+
+              {requiredDocs.map((doc) => {
+                const formato = DOCUMENT_FORMATS[doc.tipo];
+                const formatoLabel = formato?.label ?? "PDF / Word";
+                const acceptValue = (formato?.extensions ?? DOCUMENT_UPLOAD_ACCEPTED_EXTENSIONS).join(",");
+
+                return (
+                  <div key={doc.tipo} className="space-y-2 rounded-md border p-3">
+                    <p className="text-sm font-medium">{doc.label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Formato: {formatoLabel} · Máx{" "}
+                      {Math.floor(DOCUMENT_UPLOAD_MAX_SIZE_BYTES / (1024 * 1024))} MB
+                    </p>
+
+                    {doc.indicaciones.length > 0 ? (
+                      <details className="text-xs text-muted-foreground">
+                        <summary className="cursor-pointer font-medium text-primary">
+                          Ver indicaciones
+                        </summary>
+                        <ul className="mt-1 list-disc space-y-0.5 pl-5">
+                          {doc.indicaciones.map((ind) => (
+                            <li key={ind}>{ind}</li>
+                          ))}
+                        </ul>
+                      </details>
+                    ) : null}
+
+                    {doc.plantilla ? (
+                      doc.plantilla.accion === "descargar" ? (
+                        <a
+                          href={plantillaUrl(doc.plantilla.key, "descargar")}
+                          className="inline-flex w-fit items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                        >
+                          ⬇ {doc.plantilla.label}
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          className="inline-flex w-fit items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                          onClick={() =>
+                            setGuia({
+                              url: plantillaUrl(doc.plantilla!.key, "ver"),
+                              title: doc.plantilla!.label,
+                            })
+                          }
+                        >
+                          👁 {doc.plantilla.label}
+                        </button>
+                      )
+                    ) : null}
+
+                    <Input
+                      accept={acceptValue}
+                      type="file"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] ?? null;
+                        if (file) {
+                          const validationError = expedientesService.validateDocumento(
+                            file,
+                            formato
+                              ? { extensions: formato.extensions, mimeTypes: formato.mimeTypes }
+                              : undefined,
+                          );
+                          if (validationError) {
+                            setError(`${doc.label}: ${validationError}`);
+                            event.currentTarget.value = "";
+                            setSelectedFiles((cur) => ({ ...cur, [doc.tipo]: null }));
+                            return;
+                          }
+                        }
+                        setError(null);
+                        setSelectedFiles((cur) => ({ ...cur, [doc.tipo]: file }));
+                        setRegisteredDocs((cur) => ({ ...cur, [doc.tipo]: false }));
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {selectedFiles[doc.tipo]
+                        ? `Archivo: ${selectedFiles[doc.tipo]?.name}`
+                        : "Sin archivo seleccionado"}
+                    </p>
+                  </div>
+                );
+              })}
+
+              <div className="flex gap-3">
+                <Button type="button" variant="outline" onClick={() => setStep(1)}>
                   Anterior
                 </Button>
-              ) : null}
-
-              {step < 3 ? (
-                <Button onClick={nextStep} type="button" disabled={isWorking}>
-                  {step === 1
-                    ? createDraftMutation.isPending
-                      ? "Creando borrador..."
-                      : "Siguiente"
-                    : registrarDocumentoMutation.isPending
-                      ? "Registrando documentos..."
-                      : "Siguiente"}
+                <Button type="button" onClick={handleContinuarDocumentos} disabled={!docsComplete}>
+                  Continuar a revisión
                 </Button>
-              ) : null}
-
-              {step === 3 ? (
-                <Button type="submit" disabled={isWorking || !docsRegistered}>
-                  {enviarExpedienteMutation.isPending ? "Enviando..." : "Enviar expediente"}
-                </Button>
-              ) : null}
+              </div>
             </div>
-          </form>
+          ) : null}
+
+          {/* ---------- PASO 3: Revisar y enviar ---------- */}
+          {step === 3 ? (
+            <div className="space-y-4">
+              <div className="space-y-2 rounded-md border p-4 text-sm">
+                <p>
+                  <strong>Modalidad:</strong> {MODALIDAD_LABEL[modalidad]}
+                </p>
+                <p>
+                  <strong>Título:</strong> {form.getValues("titulo")}
+                </p>
+                <p>
+                  <strong>Programa:</strong> {form.getValues("programa")}
+                  {modalidad === "pregrado" ? ` · Ciclo ${form.getValues("ciclo")}` : ""}
+                  {modalidad === "postgrado" ? ` · ${form.getValues("nivel")}` : ""}
+                </p>
+                <p>
+                  <strong>Integrantes:</strong> {form.getValues("autores").length}
+                </p>
+                <p>
+                  <strong>Documentos adjuntos:</strong> {requiredDocs.length}/{requiredDocs.length}
+                </p>
+              </div>
+
+              {enviado ? (
+                <Alert className="border-emerald-200 bg-emerald-50 text-emerald-900">
+                  <AlertTitle>¡Proyecto enviado! ✅</AlertTitle>
+                  <AlertDescription>
+                    Tu proyecto (código <strong>{expediente?.codigo}</strong>) fue remitido al Comité de Ética.
+                    Puedes seguir su estado en <strong>Mis proyectos</strong>.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <div className="flex gap-3">
+                  <Button type="button" variant="outline" onClick={() => setStep(2)} disabled={isWorking}>
+                    Anterior
+                  </Button>
+                  <Button type="button" onClick={handleEnviar} disabled={isWorking || cerrado}>
+                    {isWorking ? "Enviando…" : cerrado ? "Envíos cerrados" : "Enviar al Comité"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : null}
         </CardContent>
       </Card>
+
+      <Dialog open={Boolean(guia)} onOpenChange={(open) => (open ? undefined : setGuia(null))}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="truncate pr-6">{guia?.title ?? "Guía"}</DialogTitle>
+          </DialogHeader>
+          {guia ? (
+            <iframe src={guia.url} title={guia.title} className="h-[75vh] w-full rounded-md border" />
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

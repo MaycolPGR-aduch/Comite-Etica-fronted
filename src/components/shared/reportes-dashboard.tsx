@@ -224,7 +224,6 @@ export function ReportesDashboard({ scopeLabel }: ReportesDashboardProps) {
               row.codigoUnico,
               row.tituloProtocolo,
               row.estado,
-              row.prioridad,
               row.facultad,
             ]}
             searchPlaceholder="Buscar por código, título, estado o facultad"
@@ -232,7 +231,6 @@ export function ReportesDashboard({ scopeLabel }: ReportesDashboardProps) {
               { key: "codigo", header: "Código", cell: (row) => row.codigoUnico || "-" },
               { key: "titulo", header: "Título", cell: (row) => row.tituloProtocolo || "-" },
               { key: "estado", header: "Estado", cell: (row) => row.estado || "-" },
-              { key: "prioridad", header: "Prioridad", cell: (row) => row.prioridad || "-" },
               { key: "facultad", header: "Facultad", cell: (row) => row.facultad || "-" },
             ]}
             emptyTitle="Sin expedientes"

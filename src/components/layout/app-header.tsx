@@ -18,8 +18,9 @@ import {
 
 const titleBySegment: Record<string, string> = {
   dashboard: "Dashboard",
-  expedientes: "Expedientes",
-  nuevo: "Nuevo expediente",
+  expedientes: "Mis proyectos",
+  nuevo: "Nuevo proyecto",
+  "cambio-titulo": "Cambiar título",
   bandeja: "Bandeja",
   revision: "Revision administrativa",
   asignacion: "Asignacion de evaluadores",

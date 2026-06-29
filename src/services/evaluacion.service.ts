@@ -2,6 +2,8 @@ import axios from "axios";
 
 import { api } from "@/lib/api";
 import type {
+  CriterioEvaluacionResponseDto,
+  CriterioEvaluado,
   DocumentoResponseDto,
   Evaluacion,
   EvaluacionAsignarRequestDto,
@@ -12,16 +14,30 @@ import type {
   ExpedienteResponseDto,
   MessageResponseDto,
   Recommendation,
-  RiskLevel,
+  ResultadoEvaluacion,
+  RubricaCriterio,
+  RubricaResponseDto,
   UserResponseDto,
 } from "@/types";
 
-export interface EvaluacionPayload {
+/** Catálogo de la rúbrica oficial mapeado a dominio. */
+export interface RubricaCatalogo {
+  criterios: RubricaCriterio[];
+  puntajeTotalMax: number;
+  umbrales: Record<string, string>;
+}
+
+export interface GuardarRubricaPayload {
   evaluacionId: string;
-  riesgo: RiskLevel;
-  recomendacion: Recommendation;
-  secciones: Array<{ seccion: string; observacion: string }>;
+  criterios: CriterioEvaluado[];
+  observaciones?: string;
   enviar: boolean;
+}
+
+export interface GuardarRubricaResult {
+  resultado: ResultadoEvaluacion | null;
+  puntajeTotal: number | null;
+  estado: "Borrador" | "Enviada";
 }
 
 export interface EvaluacionBandejaItem {
@@ -29,11 +45,13 @@ export interface EvaluacionBandejaItem {
   expedienteId: string;
   expedienteTitulo?: string;
   evaluadorId: string;
-  nivelRiesgo: RiskLevel | null;
   recommendation: Recommendation | null;
   observaciones: string | null;
   completa: boolean;
   conflictoInteres: boolean;
+  criterios: CriterioEvaluado[];
+  puntajeTotal: number | null;
+  resultado: ResultadoEvaluacion | null;
   createdAt: string;
   estado: "Completada" | "En progreso" | "Conflicto de interes";
 }
@@ -48,17 +66,6 @@ export interface EvaluacionContextoResponse {
     correo: string;
   };
 }
-
-const priorityMap: Record<string, Expediente["prioridad"]> = {
-  alta: "Alta",
-  high: "Alta",
-  urgente: "Alta",
-  media: "Media",
-  medio: "Media",
-  normal: "Media",
-  baja: "Baja",
-  low: "Baja",
-};
 
 const API_BASE_URL = api.defaults.baseURL ?? "https://comite-backend.onrender.com/api/v1";
 const API_ORIGIN = (() => {
@@ -90,12 +97,6 @@ const resolveDocumentoUrl = (rutaArchivo?: string | null) => {
 
 const normalize = (value?: string | null) => value?.trim().toLowerCase() ?? "";
 
-const riskMap: Record<string, RiskLevel> = {
-  bajo: "Bajo",
-  medio: "Medio",
-  alto: "Alto",
-};
-
 const recommendationMap: Record<string, Recommendation> = {
   aprobar: "Aprobar",
   aprobar_con_observaciones: "Aprobar con observaciones",
@@ -103,23 +104,25 @@ const recommendationMap: Record<string, Recommendation> = {
   desaprobar: "Solicitar subsanación",
 };
 
-const recommendationToApiMap: Record<Recommendation, string> = {
-  Aprobar: "aprobar",
-  "Aprobar con observaciones": "aprobar_con_observaciones",
-  "Solicitar subsanación": "solicitar_subsanacion",
-};
-
-const riskToApiMap: Record<RiskLevel, string> = {
-  Bajo: "bajo",
-  Medio: "medio",
-  Alto: "alto",
-};
-
-const toRiskLevel = (value?: string | null): RiskLevel | null =>
-  riskMap[normalize(value)] ?? null;
-
 const toRecommendation = (value?: string | null): Recommendation | null =>
   recommendationMap[normalize(value)] ?? null;
+
+const toResultado = (value?: string | null): ResultadoEvaluacion | null => {
+  if (
+    value === "aprobado" ||
+    value === "aprobado_observaciones" ||
+    value === "no_aprobado"
+  ) {
+    return value;
+  }
+  return null;
+};
+
+const toCriterioEvaluado = (dto: CriterioEvaluacionResponseDto): CriterioEvaluado => ({
+  key: dto.criterio_key,
+  puntaje: dto.puntaje,
+  observacion: dto.observacion ?? "",
+});
 
 const resolveEstado = (
   completa: boolean,
@@ -149,30 +152,18 @@ const parseSecciones = (observaciones?: string | null) => {
     });
 };
 
-const serializeSecciones = (
-  secciones: Array<{ seccion: string; observacion: string }>,
-): string | null => {
-  const content = secciones
-    .map((item) => ({
-      seccion: item.seccion.trim(),
-      observacion: item.observacion.trim(),
-    }))
-    .filter((item) => item.observacion.length > 0)
-    .map((item) => `${item.seccion}: ${item.observacion}`);
-
-  return content.length > 0 ? content.join("\n") : null;
-};
-
 const toBandejaItem = (dto: EvaluacionResponseDto): EvaluacionBandejaItem => ({
   id: String(dto.id),
   expedienteId: String(dto.expediente_id),
   expedienteTitulo: dto.titulo_protocolo ?? undefined,
   evaluadorId: String(dto.evaluador_id),
-  nivelRiesgo: toRiskLevel(dto.nivel_riesgo),
   recommendation: toRecommendation(dto.recommendation),
   observaciones: dto.observaciones,
   completa: dto.completa,
   conflictoInteres: dto.conflicto_interes,
+  criterios: (dto.criterios ?? []).map(toCriterioEvaluado),
+  puntajeTotal: dto.puntaje_total ?? null,
+  resultado: toResultado(dto.resultado),
   createdAt: dto.created_at,
   estado: resolveEstado(dto.completa, dto.conflicto_interes),
 });
@@ -181,7 +172,6 @@ const toDomainEvaluacion = (dto: EvaluacionResponseDto): Evaluacion => ({
   id: String(dto.id),
   expedienteId: String(dto.expediente_id),
   evaluadorId: String(dto.evaluador_id),
-  riesgo: toRiskLevel(dto.nivel_riesgo) ?? "Medio",
   recomendacion: toRecommendation(dto.recommendation) ?? "Aprobar con observaciones",
   secciones: parseSecciones(dto.observaciones),
   estado: dto.completa ? "Enviada" : "Borrador",
@@ -212,7 +202,6 @@ const toDomainExpediente = (
   facultad: dto.facultad ?? "No especificada",
   fechaRegistro: dto.created_at,
   fechaLimite: undefined,
-  prioridad: priorityMap[dto.prioridad?.trim().toLowerCase()] ?? "Media",
   estado: "En evaluación",
   documentos: documentos.map(toDomainDocumento),
   observacionesPendientes: 0,
@@ -413,26 +402,48 @@ export const evaluacionService = {
     }
   },
 
-  async saveEvaluacion(
-    payload: EvaluacionPayload,
-  ): Promise<{ estado: "Borrador" | "Enviada"; message: string }> {
+  async getRubrica(): Promise<RubricaCatalogo> {
+    try {
+      const response = await api.get<RubricaResponseDto>("/evaluacion/rubrica");
+      const data = response.data;
+
+      return {
+        criterios: data.criterios.map((item) => ({
+          key: item.key,
+          nombre: item.nombre,
+          descripcion: item.descripcion,
+          puntajeMax: item.puntaje_max,
+        })),
+        puntajeTotalMax: data.puntaje_total_max,
+        umbrales: data.umbrales,
+      };
+    } catch (error) {
+      throw new Error(resolveErrorMessage(error));
+    }
+  },
+
+  async saveRubrica(payload: GuardarRubricaPayload): Promise<GuardarRubricaResult> {
+    const observaciones = payload.observaciones?.trim();
+
     const requestPayload: EvaluacionUpdateRequestDto = {
-      nivel_riesgo: riskToApiMap[payload.riesgo],
-      recommendation: recommendationToApiMap[payload.recomendacion],
-      observaciones: serializeSecciones(payload.secciones),
+      observaciones: observaciones ? observaciones : null,
       completa: payload.enviar,
+      criterios: payload.criterios.map((item) => {
+        const observacion = item.observacion.trim();
+        return {
+          key: item.key,
+          puntaje: item.puntaje,
+          observacion: observacion ? observacion : null,
+        };
+      }),
     };
 
-    if (payload.enviar) {
-      await this.update(payload.evaluacionId, requestPayload);
-      return { estado: "Enviada", message: "Evaluacion enviada correctamente." };
-    }
-
-    const partialResponse = await this.guardarParcial(payload.evaluacionId, requestPayload);
+    const updated = await this.update(payload.evaluacionId, requestPayload);
 
     return {
-      estado: "Borrador",
-      message: partialResponse.message || "Guardado parcial exitoso.",
+      resultado: updated.resultado,
+      puntajeTotal: updated.puntajeTotal,
+      estado: payload.enviar ? "Enviada" : "Borrador",
     };
   },
 };

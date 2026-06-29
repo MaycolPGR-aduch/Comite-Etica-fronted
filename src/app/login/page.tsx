@@ -9,46 +9,27 @@ import { z } from "zod";
 
 import { AuthShell } from "@/components/layout";
 import { useLogin } from "@/hooks";
-import type { Role } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 const schema = z.object({
   correo: z.string().email("Ingrese un correo valido"),
-  role: z.custom<Role>(),
   password: z.string().min(1, "Ingrese su contraseña"),
 });
 
 type FormData = z.infer<typeof schema>;
 
-const roleOptions: Array<{ value: Role; label: string }> = [
-  { value: "investigador", label: "Investigador" },
-  { value: "secretaria", label: "Secretaria tecnica" },
-  { value: "coordinador", label: "Coordinador" },
-  { value: "evaluador", label: "Evaluador" },
-  { value: "administrador", label: "Administrador" },
-];
-
 export default function LoginPage() {
   const router = useRouter();
   const loginMutation = useLogin();
-  const [selectedRole, setSelectedRole] = useState<Role>("investigador");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       correo: "",
-      role: "investigador",
       password: "",
     },
   });
@@ -96,29 +77,6 @@ export default function LoginPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="font-semibold">Rol</Label>
-                <Select
-                  value={selectedRole}
-                  onValueChange={(value) => {
-                    const role = value as Role;
-                    setSelectedRole(role);
-                    form.setValue("role", role, { shouldValidate: true });
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccione rol" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roleOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
                 <Label className="font-semibold" htmlFor="password">
                   Contraseña
                 </Label>
@@ -148,7 +106,7 @@ export default function LoginPage() {
               <div className="flex flex-col items-center gap-2 pt-2">
                 <div className="flex w-full justify-center gap-3">
                   <Button asChild className="min-w-40 font-semibold" size="sm" variant="secondary">
-                    <Link href="/crear-usuario">Crear usuario</Link>
+                    <Link href="/crear-usuario">Registrarse</Link>
                   </Button>
                   <Button asChild className="min-w-40 font-semibold" size="sm" variant="secondary">
                     <Link href="/recuperar-contrasena">Recuperar contraseña</Link>

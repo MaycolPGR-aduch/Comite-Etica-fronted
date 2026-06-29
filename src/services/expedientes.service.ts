@@ -16,7 +16,6 @@ import type {
   HistorialEstadoDto,
   HistorialEvento,
   Observacion,
-  Priority,
 } from "@/types";
 
 import { getAuthUser } from "./auth-session";
@@ -33,8 +32,71 @@ export interface NuevoExpedientePayload {
   titulo: string;
   tipoTramite: string;
   facultad: string;
-  prioridad: Priority;
   resumen: string;
+}
+
+export type ModalidadExpediente = "pregrado" | "postgrado" | "interno";
+
+export interface PlantillaInfo {
+  key: string;
+  accion: "descargar" | "ver";
+  label: string;
+}
+
+export interface DocumentoRequerido {
+  tipo: string;
+  label: string;
+  indicaciones: string[];
+  plantilla: PlantillaInfo | null;
+}
+
+export interface GuiaNombres {
+  key: string;
+  label: string;
+  texto: string;
+}
+
+export interface CatalogosExpediente {
+  modalidad: ModalidadExpediente | null;
+  programas_estudios: string[];
+  ciclos: string[];
+  niveles_posgrado: string[];
+  documentos_requeridos: Record<string, DocumentoRequerido[]>;
+  guia_nombres: GuiaNombres;
+  cambio_titulo: {
+    ciclos: string[];
+    documento: DocumentoRequerido;
+  };
+}
+
+export interface CambioTituloPayload {
+  numeroActa: string;
+  programaEstudios: string;
+  ciclo: string;
+  tituloAnterior: string;
+  tituloNuevo: string;
+  autores: AutorPayload[];
+}
+
+/** URL pública de una plantilla/guía del comité. */
+export const plantillaUrl = (key: string, modo: "ver" | "descargar") => {
+  const base = api.defaults.baseURL ?? "";
+  return `${base}/plantillas/${key}?modo=${modo}`;
+};
+
+export interface AutorPayload {
+  apellidos_nombres: string;
+  codigo_estudiante?: string;
+  correo?: string;
+  telefono?: string;
+}
+
+export interface NuevoExpedienteDinamicoPayload {
+  titulo: string;
+  programaEstudios: string;
+  ciclo?: string;
+  nivelPosgrado?: string;
+  autores: AutorPayload[];
 }
 
 export interface RegistrarDocumentoPayload {
@@ -82,6 +144,32 @@ export const DOCUMENT_UPLOAD_ACCEPTED_EXTENSIONS = [
 
 export const DOCUMENT_UPLOAD_MAX_SIZE_BYTES = 10 * 1024 * 1024;
 
+// Formato exacto que admite cada tipo de documento (validación estricta por casillero).
+const PDF_MIMES = ["application/pdf"];
+const WORD_MIMES = [
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+];
+const IMAGE_MIMES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+
+export interface DocumentFormat {
+  label: string;
+  extensions: string[];
+  mimeTypes: string[];
+}
+
+export const DOCUMENT_FORMATS: Record<string, DocumentFormat> = {
+  proyecto_pdf: { label: "PDF", extensions: [".pdf"], mimeTypes: PDF_MIMES },
+  proyecto_word: { label: "Word (.doc, .docx)", extensions: [".doc", ".docx"], mimeTypes: WORD_MIMES },
+  solicitud_evaluacion: { label: "PDF", extensions: [".pdf"], mimeTypes: PDF_MIMES },
+  carta_aprobacion: { label: "PDF", extensions: [".pdf"], mimeTypes: PDF_MIMES },
+  boleta_pago: {
+    label: "PDF o imagen (JPG/PNG)",
+    extensions: [".pdf", ".jpg", ".jpeg", ".png", ".webp"],
+    mimeTypes: [...PDF_MIMES, ...IMAGE_MIMES],
+  },
+};
+
 const statusMap: Record<string, ExpedienteStatus> = {
   borrador: "Borrador",
   recibido: "Enviado",
@@ -107,25 +195,9 @@ const derivableWorkflowStatuses = new Set<ExpedienteStatus>([
   "En deliberación",
 ]);
 
-const priorityMap: Record<string, Priority> = {
-  alta: "Alta",
-  high: "Alta",
-  urgente: "Alta",
-  media: "Media",
-  medio: "Media",
-  normal: "Media",
-  baja: "Baja",
-  low: "Baja",
-};
-
 const resolveStatus = (value: string): ExpedienteStatus => {
   const key = value.trim().toLowerCase();
   return statusMap[key] ?? "Enviado";
-};
-
-const resolvePriority = (value?: string | null): Priority => {
-  if (!value) return "Media";
-  return priorityMap[value.trim().toLowerCase()] ?? "Media";
 };
 
 const API_BASE_URL = api.defaults.baseURL ?? "https://comite-backend.onrender.com/api/v1";
@@ -308,7 +380,6 @@ const toDomainExpediente = (
     facultad: dto.facultad ?? "No especificada",
     fechaRegistro: dto.created_at,
     fechaLimite: undefined,
-    prioridad: resolvePriority(dto.prioridad),
     estado: resolveStatus(dto.estado),
     documentos: resolveDocumentos(documentos),
     observacionesPendientes: 0,
@@ -470,12 +541,68 @@ export const expedientesService = {
     };
   },
 
+  async getCatalogos(): Promise<CatalogosExpediente> {
+    const response = await api.get<CatalogosExpediente>("/expedientes/catalogos");
+    return response.data;
+  },
+
+  async createExpedienteDinamico(
+    payload: NuevoExpedienteDinamicoPayload,
+  ): Promise<{ id: string; codigo: string }> {
+    const requestBody = {
+      titulo_protocolo: payload.titulo,
+      programa_estudios: payload.programaEstudios,
+      ciclo: payload.ciclo || null,
+      nivel_posgrado: payload.nivelPosgrado || null,
+      autores: payload.autores,
+    };
+
+    const created = await api.post<ExpedienteResponseDto>("/expedientes/", requestBody);
+    return {
+      id: String(created.data.id),
+      codigo: created.data.codigo_unico ?? `EXP-${created.data.id}`,
+    };
+  },
+
+  async createCambioTitulo(
+    payload: CambioTituloPayload,
+  ): Promise<{ id: string; codigo: string }> {
+    const requestBody = {
+      numero_acta: payload.numeroActa,
+      programa_estudios: payload.programaEstudios,
+      ciclo: payload.ciclo,
+      titulo_anterior: payload.tituloAnterior,
+      titulo_nuevo: payload.tituloNuevo,
+      autores: payload.autores,
+    };
+    const created = await api.post<ExpedienteResponseDto>("/expedientes/cambio-titulo", requestBody);
+    return {
+      id: String(created.data.id),
+      codigo: created.data.codigo_unico ?? `EXP-${created.data.id}`,
+    };
+  },
+
+  async deleteExpediente(id: string): Promise<void> {
+    const expedienteId = Number(id);
+    if (!Number.isFinite(expedienteId)) {
+      throw new Error("El identificador del proyecto no es válido.");
+    }
+    try {
+      await api.delete(`/expedientes/${expedienteId}`);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const detail = error.response?.data?.detail;
+        if (typeof detail === "string") throw new Error(detail);
+      }
+      throw new Error("No se pudo eliminar el proyecto.");
+    }
+  },
+
   async createDraft(payload: NuevoExpedientePayload): Promise<Expediente> {
     const requestBody: ExpedienteCreateRequestDto = {
       titulo_protocolo: payload.titulo,
       tipo_tramite: payload.tipoTramite.trim() || null,
       facultad: payload.facultad.trim() || null,
-      prioridad: payload.prioridad.toLowerCase(),
     };
 
     const created = await api.post<ExpedienteResponseDto>("/expedientes/", requestBody);
@@ -530,23 +657,24 @@ export const expedientesService = {
     return response.data;
   },
 
-  validateDocumento(file: File): string | null {
+  validateDocumento(
+    file: File,
+    options?: { extensions?: readonly string[]; mimeTypes?: readonly string[] },
+  ): string | null {
+    const allowedExtensions: readonly string[] = options?.extensions ?? DOCUMENT_UPLOAD_ACCEPTED_EXTENSIONS;
+    const allowedMimeTypes: readonly string[] = options?.mimeTypes ?? DOCUMENT_UPLOAD_ACCEPTED_MIME_TYPES;
+
     const lowerName = file.name.toLowerCase();
-    const hasAllowedExtension = DOCUMENT_UPLOAD_ACCEPTED_EXTENSIONS.some((extension) =>
+    const hasAllowedExtension = allowedExtensions.some((extension) =>
       lowerName.endsWith(extension),
     );
 
     if (!hasAllowedExtension) {
-      return `Formato no permitido. Use: ${DOCUMENT_UPLOAD_ACCEPTED_EXTENSIONS.join(", ")}.`;
+      return `Formato no permitido. Use: ${allowedExtensions.join(", ")}.`;
     }
 
-    if (
-      file.type &&
-      !DOCUMENT_UPLOAD_ACCEPTED_MIME_TYPES.includes(
-        file.type as (typeof DOCUMENT_UPLOAD_ACCEPTED_MIME_TYPES)[number],
-      )
-    ) {
-      return "Tipo MIME no permitido para este endpoint.";
+    if (file.type && !allowedMimeTypes.includes(file.type)) {
+      return "El tipo de archivo no coincide con el formato requerido.";
     }
 
     if (file.size > DOCUMENT_UPLOAD_MAX_SIZE_BYTES) {

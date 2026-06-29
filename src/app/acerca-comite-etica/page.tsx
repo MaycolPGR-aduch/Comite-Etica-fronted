@@ -50,7 +50,7 @@ const faqs = [
   {
     pregunta: "¿La evaluación se basa en criterios estandarizados?",
     respuesta:
-      "Sí. El flujo está diseñado para registrar criterios por sección, nivel de riesgo, recomendaciones y consolidación final con evidencia trazable.",
+      "Sí. El flujo está diseñado para registrar la rúbrica oficial de criterios, recomendaciones y consolidación final con evidencia trazable.",
   },
   {
     pregunta: "¿Puedo descargar el dictamen final?",

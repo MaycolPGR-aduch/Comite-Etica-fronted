@@ -5,7 +5,6 @@ import type {
   IAInconsistencias,
   IAObservacionesSugeridas,
   IAPreanalisis,
-  IARiesgos,
   IAResumenExpediente,
   IAResponseDto,
 } from "@/types";
@@ -85,25 +84,6 @@ export const iaService = {
         inconsistencias: getStringArray(body, "inconsistencias"),
         mensaje: message,
         isPlaceholder: isPlaceholderMessage(message),
-      };
-    } catch (error) {
-      throw new Error(resolveErrorMessage(error));
-    }
-  },
-
-  async getRiesgos(expedienteId: string): Promise<IARiesgos> {
-    try {
-      const response = await api.get<IAResponseDto>(`/ia/detectar-riesgos/${expedienteId}`);
-      const body = asRecord(response.data);
-      const message = getString(body, "mensaje");
-      const nivelRiesgo = getString(body, "nivel_riesgo") ?? "desconocido";
-
-      return {
-        nivelRiesgo,
-        factores: getStringArray(body, "factores"),
-        mensaje: message,
-        isPlaceholder:
-          nivelRiesgo === "pendiente_analisis" || isPlaceholderMessage(message),
       };
     } catch (error) {
       throw new Error(resolveErrorMessage(error));

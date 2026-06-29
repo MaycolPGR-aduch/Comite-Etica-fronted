@@ -14,6 +14,8 @@ const statusClasses: Record<ExpedienteStatus, string> = {
   "En deliberación": "bg-orange-100 text-orange-800",
   Observado: "bg-yellow-100 text-yellow-800",
   Aprobado: "bg-green-100 text-green-800",
+  "Aprobado con observaciones": "bg-amber-100 text-amber-800",
+  "No aprobado": "bg-red-100 text-red-800",
   Cerrado: "bg-zinc-200 text-zinc-700",
 };
 

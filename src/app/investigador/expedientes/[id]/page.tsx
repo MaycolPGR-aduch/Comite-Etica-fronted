@@ -36,8 +36,8 @@ export default function DetalleExpedientePage() {
   if (error || !data) {
     return (
       <ErrorState
-        title="Expediente no disponible"
-        description="No se encontro informacion para el expediente seleccionado."
+        title="Proyecto no disponible"
+        description="No se encontro informacion para el proyecto seleccionado."
         onRetry={() => refetch()}
       />
     );
@@ -144,8 +144,8 @@ export default function DetalleExpedientePage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Detalle del expediente"
-        description="Seguimiento documental, observaciones, dictamen y actividad del expediente."
+        title="Detalle del proyecto"
+        description="Seguimiento documental, observaciones, dictamen y actividad del proyecto."
       />
       <Card>
         <CardHeader className="flex flex-row items-start justify-between">
@@ -166,9 +166,6 @@ export default function DetalleExpedientePage() {
             <strong>Facultad:</strong> {expediente.facultad}
           </p>
           <p>
-            <strong>Prioridad:</strong> {expediente.prioridad}
-          </p>
-          <p>
             <strong>Fecha registro:</strong> {new Date(expediente.fechaRegistro).toLocaleDateString()}
           </p>
           {expediente.fechaLimite ? (
@@ -183,7 +180,7 @@ export default function DetalleExpedientePage() {
         <div className="space-y-3">
           {allowResumeUpload ? (
             <Alert className="border-amber-200 bg-amber-50">
-              <AlertTitle>Expediente en borrador</AlertTitle>
+              <AlertTitle>Proyecto en borrador</AlertTitle>
               <AlertDescription>
                 Puede retomar la carga de documentos pendientes y, cuando estén completos, continuar con el envío.
               </AlertDescription>
@@ -284,7 +281,7 @@ export default function DetalleExpedientePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Resumen IA del expediente</CardTitle>
+          <CardTitle>Resumen IA del proyecto</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           {iaResumenQuery.isLoading ? (

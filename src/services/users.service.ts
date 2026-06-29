@@ -1,7 +1,7 @@
 import axios from "axios";
 
 import { api } from "@/lib/api";
-import type { Role, UserResponseDto, Usuario } from "@/types";
+import type { CreateUserPayload, Role, UserResponseDto, Usuario } from "@/types";
 
 export interface UserUpdatePayload {
   nombre?: string;
@@ -12,6 +12,8 @@ export interface UserUpdatePayload {
 
 const roleSet = new Set<Role>([
   "investigador",
+  "estudiante_pregrado",
+  "estudiante_postgrado",
   "secretaria",
   "coordinador",
   "evaluador",
@@ -55,6 +57,15 @@ const resolveErrorMessage = (error: unknown): string => {
 };
 
 export const usersService = {
+  async create(payload: CreateUserPayload): Promise<Usuario> {
+    try {
+      const response = await api.post<UserResponseDto>("/users/", payload);
+      return toDomainUser(response.data);
+    } catch (error) {
+      throw new Error(resolveErrorMessage(error));
+    }
+  },
+
   async list(): Promise<Usuario[]> {
     try {
       const response = await api.get<UserResponseDto[]>("/users/", {

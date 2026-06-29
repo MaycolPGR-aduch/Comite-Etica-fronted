@@ -1,5 +1,6 @@
 export * from "./auth.service";
 export * from "./asignacion.service";
+export * from "./config.service";
 export * from "./configuracion.service";
 export * from "./consolidacion.service";
 export * from "./dashboard.service";
