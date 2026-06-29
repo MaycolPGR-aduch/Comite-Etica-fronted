@@ -37,6 +37,8 @@ export default function BandejaEvaluadorPage() {
           searchPlaceholder="Buscar por evaluación o expediente"
           statusAccessor={(row) => row.estado}
           statusOptions={["En progreso", "Completada", "Conflicto de interes"]}
+          dateAccessor={(row) => row.createdAt}
+          dateLabel="Fecha de asignación"
           columns={[
             { key: "id", header: "Evaluacion", cell: (row) => `#${row.id}` },
             { key: "expediente", header: "Expediente", cell: (row) => `#${row.expedienteId}` },

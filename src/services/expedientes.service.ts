@@ -388,6 +388,7 @@ const toDomainExpediente = (
     tipoTramite: dto.tipo_tramite ?? "No especificado",
     facultad: dto.facultad ?? "No especificada",
     fechaRegistro: dto.created_at,
+    fechaEnvio: dto.fecha_envio ?? undefined,
     fechaLimite: undefined,
     estado: resolveStatus(dto.estado),
     documentos: resolveDocumentos(documentos),

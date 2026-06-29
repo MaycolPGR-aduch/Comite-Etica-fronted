@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { useEliminarExpediente, useExpedientes } from "@/hooks";
-import { EXPEDIENTE_STATUSES, type Expediente } from "@/types";
+import { type Expediente } from "@/types";
 import { DataTable, StatusBadge, useConfirm } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,8 +46,7 @@ export default function MisExpedientesPage() {
           getRowId={(row) => row.id}
           searchAccessor={(row) => [row.codigo, row.titulo, row.tipoTramite, row.facultad, row.estado]}
           searchPlaceholder="Buscar por código, título, tipo o facultad"
-          statusAccessor={(row) => row.estado}
-          statusOptions={[...EXPEDIENTE_STATUSES]}
+          dateAccessor={(row) => row.fechaEnvio ?? null}
           columns={[
             {
               key: "codigo",
@@ -59,6 +58,12 @@ export default function MisExpedientesPage() {
               ),
             },
             { key: "titulo", header: "Titulo", cell: (row) => row.titulo },
+            {
+              key: "fechaEnvio",
+              header: "Fecha de envío",
+              cell: (row) =>
+                row.fechaEnvio ? new Date(row.fechaEnvio).toLocaleDateString("es-PE") : "—",
+            },
             { key: "estado", header: "Estado", cell: (row) => <StatusBadge status={row.estado} /> },
             {
               key: "acciones",

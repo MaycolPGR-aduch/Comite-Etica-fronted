@@ -149,6 +149,7 @@ export interface Expediente {
   tipoTramite: string;
   facultad: string;
   fechaRegistro: string;
+  fechaEnvio?: string;
   fechaLimite?: string;
   estado: ExpedienteStatus;
   documentos: Documento[];

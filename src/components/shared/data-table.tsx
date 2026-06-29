@@ -34,9 +34,26 @@ interface DataTableProps<TData> {
   searchLabel?: string;
   statusAccessor?: (row: TData) => string;
   statusOptions?: string[];
+  dateAccessor?: (row: TData) => string | null | undefined;
+  dateLabel?: string;
   emptyTitle?: string;
   emptyDescription?: string;
 }
+
+const toIsoDate = (value: string | null | undefined): string | null => {
+  if (!value) {
+    return null;
+  }
+  // La mayoría de fechas llegan como ISO (YYYY-MM-DD...), basta con los primeros 10 chars.
+  if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
+    return value.slice(0, 10);
+  }
+  try {
+    return new Date(value).toISOString().slice(0, 10);
+  } catch {
+    return null;
+  }
+};
 
 const normalizeText = (value: string) =>
   value
@@ -55,11 +72,15 @@ export function DataTable<TData>({
   searchLabel = "Buscar en la tabla",
   statusAccessor,
   statusOptions = [],
+  dateAccessor,
+  dateLabel = "Fecha de envío",
   emptyTitle = "No hay datos",
   emptyDescription = "No se encontraron registros para mostrar.",
 }: DataTableProps<TData>) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
 
   const filteredData = useMemo(() => {
     const normalizedSearchTerm = normalizeText(searchTerm);
@@ -67,6 +88,19 @@ export function DataTable<TData>({
     return data.filter((row) => {
       if (statusAccessor && statusFilter !== "all" && statusAccessor(row) !== statusFilter) {
         return false;
+      }
+
+      if (dateAccessor && (fechaDesde || fechaHasta)) {
+        const rowDate = toIsoDate(dateAccessor(row));
+        if (!rowDate) {
+          return false;
+        }
+        if (fechaDesde && rowDate < fechaDesde) {
+          return false;
+        }
+        if (fechaHasta && rowDate > fechaHasta) {
+          return false;
+        }
       }
 
       if (searchAccessor && normalizedSearchTerm.length > 0) {
@@ -79,10 +113,12 @@ export function DataTable<TData>({
 
       return true;
     });
-  }, [data, searchAccessor, searchTerm, statusAccessor, statusFilter]);
+  }, [data, searchAccessor, searchTerm, statusAccessor, statusFilter, dateAccessor, fechaDesde, fechaHasta]);
 
   const hasActiveFilters =
-    Boolean(searchAccessor && searchTerm.trim()) || Boolean(statusAccessor && statusFilter !== "all");
+    Boolean(searchAccessor && searchTerm.trim()) ||
+    Boolean(statusAccessor && statusFilter !== "all") ||
+    Boolean(dateAccessor && (fechaDesde || fechaHasta));
 
   if (loading) {
     return <TableSkeleton columns={columns.length} />;
@@ -94,7 +130,7 @@ export function DataTable<TData>({
 
   return (
     <div className="space-y-4">
-      {searchAccessor || (statusAccessor && statusOptions.length > 0) ? (
+      {searchAccessor || (statusAccessor && statusOptions.length > 0) || dateAccessor ? (
         <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-muted/40 p-3">
           {searchAccessor ? (
             <div className="relative min-w-[240px] flex-1">
@@ -127,6 +163,43 @@ export function DataTable<TData>({
             </div>
           ) : null}
 
+          {dateAccessor ? (
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="min-w-[160px]">
+                <label
+                  htmlFor="data-table-fecha-desde"
+                  className="mb-1 block text-xs font-medium text-muted-foreground"
+                >
+                  {dateLabel}: Desde
+                </label>
+                <Input
+                  id="data-table-fecha-desde"
+                  type="date"
+                  aria-label={`${dateLabel} desde`}
+                  value={fechaDesde}
+                  max={fechaHasta || undefined}
+                  onChange={(event) => setFechaDesde(event.target.value)}
+                />
+              </div>
+              <div className="min-w-[160px]">
+                <label
+                  htmlFor="data-table-fecha-hasta"
+                  className="mb-1 block text-xs font-medium text-muted-foreground"
+                >
+                  {dateLabel}: Hasta
+                </label>
+                <Input
+                  id="data-table-fecha-hasta"
+                  type="date"
+                  aria-label={`${dateLabel} hasta`}
+                  value={fechaHasta}
+                  min={fechaDesde || undefined}
+                  onChange={(event) => setFechaHasta(event.target.value)}
+                />
+              </div>
+            </div>
+          ) : null}
+
           {hasActiveFilters ? (
             <Button
               type="button"
@@ -134,6 +207,8 @@ export function DataTable<TData>({
               onClick={() => {
                 setSearchTerm("");
                 setStatusFilter("all");
+                setFechaDesde("");
+                setFechaHasta("");
               }}
             >
               Limpiar filtros

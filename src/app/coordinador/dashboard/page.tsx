@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { useDashboardCoordinador } from "@/hooks";
-import type { Expediente } from "@/types";
+import { EXPEDIENTE_STATUSES, type Expediente } from "@/types";
 import { DataTable, MetricCard, StatusBadge } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -29,6 +29,9 @@ export default function DashboardCoordinadorPage() {
           getRowId={(row) => row.id}
           searchAccessor={(row) => [row.codigo, row.titulo, row.estado]}
           searchPlaceholder="Buscar por código, título o estado"
+          statusAccessor={(row) => row.estado}
+          statusOptions={[...EXPEDIENTE_STATUSES]}
+          dateAccessor={(row) => row.fechaEnvio ?? null}
           columns={[
             { key: "codigo", header: "Codigo", cell: (row) => row.codigo },
             { key: "titulo", header: "Titulo", cell: (row) => row.titulo },

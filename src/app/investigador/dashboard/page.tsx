@@ -38,6 +38,7 @@ export default function InvestigadorDashboardPage() {
               getRowId={(row) => row.id}
               searchAccessor={(row) => [row.codigo, row.titulo, row.estado]}
               searchPlaceholder="Buscar por código, título o estado"
+              dateAccessor={(row) => row.fechaEnvio ?? null}
               columns={[
                 {
                   key: "codigo",
