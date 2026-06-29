@@ -8,6 +8,7 @@ import {
   useCrearCambioTitulo,
   useEnviarExpediente,
   useExpedienteCatalogos,
+  useProyectosElegiblesCambioTitulo,
   useRegistrarDocumentoExpediente,
 } from "@/hooks";
 import {
@@ -36,10 +37,10 @@ interface AutorForm {
 }
 
 interface FormData {
+  proyectoOrigenId: string;
   numeroActa: string;
   programa: string;
   ciclo: string;
-  tituloAnterior: string;
   tituloNuevo: string;
   autores: AutorForm[];
 }
@@ -60,6 +61,7 @@ const parseFaltantes = (error: unknown): string[] | null => {
 
 export default function CambioTituloPage() {
   const { data: catalogos, isLoading } = useExpedienteCatalogos();
+  const { data: proyectosElegibles, isLoading: loadingProyectos } = useProyectosElegiblesCambioTitulo();
   const crearMutation = useCrearCambioTitulo();
   const registrarDocMutation = useRegistrarDocumentoExpediente();
   const enviarMutation = useEnviarExpediente();
@@ -78,14 +80,20 @@ export default function CambioTituloPage() {
 
   const form = useForm<FormData>({
     defaultValues: {
+      proyectoOrigenId: "",
       numeroActa: "",
       programa: "",
       ciclo: "",
-      tituloAnterior: "",
       tituloNuevo: "",
       autores: [emptyAutor],
     },
   });
+
+  const proyectoOrigenId = form.watch("proyectoOrigenId");
+  const tituloAnterior = useMemo(
+    () => proyectosElegibles?.find((p) => p.id === proyectoOrigenId)?.titulo ?? "",
+    [proyectosElegibles, proyectoOrigenId],
+  );
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "autores" });
 
   const isWorking =
@@ -94,10 +102,10 @@ export default function CambioTituloPage() {
   const handleContinuarDatos = () => {
     setError(null);
     const v = form.getValues();
+    if (!v.proyectoOrigenId) return setError("Selecciona el proyecto aprobado que deseas modificar.");
     if (!v.numeroActa.trim()) return setError("Ingresa el N° de acta.");
     if (!v.programa) return setError("Selecciona el programa de estudios.");
     if (!v.ciclo) return setError("Selecciona el ciclo.");
-    if (v.tituloAnterior.trim().length < 5) return setError("Ingresa el título antiguo (original).");
     if (v.tituloNuevo.trim().length < 5) return setError("Ingresa el nuevo título.");
     for (const [i, a] of v.autores.entries()) {
       if (!a.apellidos_nombres.trim()) return setError(`Integrante ${i + 1}: falta apellidos y nombres.`);
@@ -129,10 +137,10 @@ export default function CambioTituloPage() {
       if (!exp) {
         const v = form.getValues();
         exp = await crearMutation.mutateAsync({
+          proyectoOrigenId: v.proyectoOrigenId,
           numeroActa: v.numeroActa.trim(),
           programaEstudios: v.programa,
           ciclo: v.ciclo,
-          tituloAnterior: v.tituloAnterior.trim(),
           tituloNuevo: v.tituloNuevo.trim(),
           autores: v.autores.map((a) => ({
             apellidos_nombres: a.apellidos_nombres.trim(),
@@ -249,6 +257,38 @@ export default function CambioTituloPage() {
           {/* ---------- PASO 1 ---------- */}
           {step === 1 ? (
             <div className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="proyectoOrigen">Proyecto aprobado a modificar</Label>
+                {loadingProyectos ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : proyectosElegibles && proyectosElegibles.length > 0 ? (
+                  <select
+                    id="proyectoOrigen"
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    {...form.register("proyectoOrigenId")}
+                  >
+                    <option value="">Seleccione su proyecto…</option>
+                    {proyectosElegibles.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.codigo ? `${p.codigo} · ` : ""}{p.titulo}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <Alert className="border-amber-300 bg-amber-50 text-amber-900">
+                    <AlertDescription>
+                      No tienes proyectos aprobados. Solo puedes solicitar un cambio de título
+                      sobre un proyecto ya aprobado (con o sin observaciones).
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {tituloAnterior ? (
+                  <p className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                    <strong>Título actual:</strong> {tituloAnterior}
+                  </p>
+                ) : null}
+              </div>
+
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="numeroActa">N° de acta</Label>
@@ -286,15 +326,6 @@ export default function CambioTituloPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="tituloAnterior">Título antiguo (original)</Label>
-                <Textarea
-                  id="tituloAnterior"
-                  rows={2}
-                  placeholder="Cópialo tal como figura en tu proyecto actual."
-                  {...form.register("tituloAnterior")}
-                />
-              </div>
               <div className="space-y-2">
                 <Label htmlFor="tituloNuevo">Nuevo título</Label>
                 <Textarea
@@ -429,7 +460,7 @@ export default function CambioTituloPage() {
                   <strong>Programa:</strong> {form.getValues("programa")} · Ciclo {form.getValues("ciclo")}
                 </p>
                 <p>
-                  <strong>Título anterior:</strong> {form.getValues("tituloAnterior")}
+                  <strong>Título anterior:</strong> {tituloAnterior}
                 </p>
                 <p>
                   <strong>Nuevo título:</strong> {form.getValues("tituloNuevo")}

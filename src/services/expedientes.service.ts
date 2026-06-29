@@ -70,12 +70,19 @@ export interface CatalogosExpediente {
 }
 
 export interface CambioTituloPayload {
+  proyectoOrigenId: string;
   numeroActa: string;
   programaEstudios: string;
   ciclo: string;
-  tituloAnterior: string;
   tituloNuevo: string;
   autores: AutorPayload[];
+}
+
+export interface ProyectoElegibleCambioTitulo {
+  id: string;
+  codigo: string | null;
+  titulo: string;
+  estado: string;
 }
 
 /** URL pública de una plantilla/guía del comité. */
@@ -564,14 +571,26 @@ export const expedientesService = {
     };
   },
 
+  async getProyectosElegiblesCambioTitulo(): Promise<ProyectoElegibleCambioTitulo[]> {
+    const response = await api.get<
+      Array<{ id: number; codigo: string | null; titulo: string; estado: string }>
+    >("/expedientes/elegibles-cambio-titulo");
+    return response.data.map((p) => ({
+      id: String(p.id),
+      codigo: p.codigo,
+      titulo: p.titulo,
+      estado: p.estado,
+    }));
+  },
+
   async createCambioTitulo(
     payload: CambioTituloPayload,
   ): Promise<{ id: string; codigo: string }> {
     const requestBody = {
+      proyecto_origen_id: Number(payload.proyectoOrigenId),
       numero_acta: payload.numeroActa,
       programa_estudios: payload.programaEstudios,
       ciclo: payload.ciclo,
-      titulo_anterior: payload.tituloAnterior,
       titulo_nuevo: payload.tituloNuevo,
       autores: payload.autores,
     };

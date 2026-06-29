@@ -184,6 +184,12 @@ export const useExpedienteCatalogos = () =>
 export const useCrearExpedienteDinamico = () =>
   useMutation({ mutationFn: expedientesService.createExpedienteDinamico });
 
+export const useProyectosElegiblesCambioTitulo = () =>
+  useQuery({
+    queryKey: ["proyectos-elegibles-cambio-titulo"],
+    queryFn: () => expedientesService.getProyectosElegiblesCambioTitulo(),
+  });
+
 export const useCrearCambioTitulo = () =>
   useMutation({ mutationFn: expedientesService.createCambioTitulo });
 

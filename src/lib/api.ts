@@ -14,7 +14,9 @@ export const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = getAuthToken();
 
-  if (token) {
+  // No pisar un header Authorization puesto explícitamente en la llamada
+  // (p. ej. el token recién emitido durante el login, antes de persistirlo).
+  if (token && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
