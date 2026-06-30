@@ -97,6 +97,13 @@ export default function NuevoExpedientePage() {
   const esEstudiante = modalidad === "pregrado" || modalidad === "postgrado";
   const esInterno = modalidad === "interno";
 
+  // El Comité diferencia: estudiantes suman "autores"; investigadores, "coautores".
+  const autorTermCap = esInterno ? "Coautor" : "Autor";
+  const autoresSeccionLabel = esInterno ? "Coautores del proyecto" : "Autores del proyecto";
+  const autorPrincipalLabel = esInterno ? "Investigador principal" : "Autor principal";
+  const agregarAutorLabel = esInterno ? "+ Agregar coautor" : "+ Agregar autor";
+  const autoresPluralLabel = esInterno ? "Coautores" : "Autores";
+
   const requiredDocs = useMemo(
     () => (modalidad ? catalogos?.documentos_requeridos[modalidad] ?? [] : []),
     [catalogos, modalidad],
@@ -130,11 +137,11 @@ export default function NuevoExpedientePage() {
     if (modalidad === "postgrado" && !v.nivel) return setError("Selecciona el nivel de posgrado.");
 
     for (const [i, a] of v.autores.entries()) {
-      if (!a.apellidos_nombres.trim()) return setError(`Integrante ${i + 1}: falta apellidos y nombres.`);
-      if (!a.correo.trim()) return setError(`Integrante ${i + 1}: falta correo.`);
-      if (!a.telefono.trim()) return setError(`Integrante ${i + 1}: falta teléfono.`);
+      if (!a.apellidos_nombres.trim()) return setError(`${autorTermCap} ${i + 1}: falta apellidos y nombres.`);
+      if (!a.correo.trim()) return setError(`${autorTermCap} ${i + 1}: falta correo.`);
+      if (!a.telefono.trim()) return setError(`${autorTermCap} ${i + 1}: falta teléfono.`);
       if (esEstudiante && !a.codigo_estudiante.trim())
-        return setError(`Integrante ${i + 1}: falta código de estudiante.`);
+        return setError(`${autorTermCap} ${i + 1}: falta código de estudiante.`);
     }
 
     setStep(2);
@@ -347,9 +354,9 @@ export default function NuevoExpedientePage() {
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label className="text-base font-semibold">Integrantes del proyecto</Label>
+                  <Label className="text-base font-semibold">{autoresSeccionLabel}</Label>
                   <Button type="button" variant="secondary" size="sm" onClick={() => append(emptyAutor)}>
-                    + Agregar integrante
+                    {agregarAutorLabel}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -360,7 +367,7 @@ export default function NuevoExpedientePage() {
                   <div key={field.id} className="space-y-3 rounded-md border p-4">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">
-                        {index === 0 ? "Responsable (principal)" : `Integrante ${index + 1}`}
+                        {index === 0 ? autorPrincipalLabel : `${autorTermCap} ${index + 1}`}
                       </span>
                       {index > 0 ? (
                         <Button type="button" variant="ghost" size="sm" onClick={() => remove(index)}>
@@ -540,7 +547,7 @@ export default function NuevoExpedientePage() {
                   {modalidad === "postgrado" ? ` · ${form.getValues("nivel")}` : ""}
                 </p>
                 <p>
-                  <strong>Integrantes:</strong> {form.getValues("autores").length}
+                  <strong>{autoresPluralLabel}:</strong> {form.getValues("autores").length}
                 </p>
                 <p>
                   <strong>Documentos adjuntos:</strong> {requiredDocs.length}/{requiredDocs.length}
