@@ -13,21 +13,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import type { Role } from "@/types";
 
+// Solo el rol Investigador puede registrarse desde el sistema (alineación de
+// requerimientos). El registro de personal administrativo lo gestiona el
+// Administrador desde el panel de usuarios.
 const schema = z
   .object({
     nombres: z.string().min(3, "Ingrese nombres validos"),
     apellidos: z.string().min(3, "Ingrese apellidos validos"),
     correo: z.string().email("Correo invalido"),
-    rol: z.custom<Role>(),
     password: z.string().min(8, "Minimo 8 caracteres"),
     confirmarPassword: z.string().min(8, "Confirme su contraseña"),
   })
@@ -38,18 +32,9 @@ const schema = z
 
 type FormData = z.infer<typeof schema>;
 
-const roleOptions: Array<{ value: Role; label: string }> = [
-  { value: "investigador", label: "Investigador" },
-  { value: "secretaria", label: "Secretaria tecnica" },
-  { value: "coordinador", label: "Coordinador" },
-  { value: "evaluador", label: "Evaluador" },
-  { value: "administrador", label: "Administrador" },
-];
-
 export default function CrearUsuarioPage() {
   const router = useRouter();
   const registerMutation = useRegister();
-  const [selectedRole, setSelectedRole] = useState<Role>("investigador");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const form = useForm<FormData>({
@@ -58,7 +43,6 @@ export default function CrearUsuarioPage() {
       nombres: "",
       apellidos: "",
       correo: "",
-      rol: "investigador",
       password: "",
       confirmarPassword: "",
     },
@@ -72,7 +56,7 @@ export default function CrearUsuarioPage() {
         nombres: values.nombres,
         apellidos: values.apellidos,
         correo: values.correo,
-        rol: values.rol,
+        rol: "investigador",
         password: values.password,
       });
 
@@ -89,8 +73,11 @@ export default function CrearUsuarioPage() {
       <Card className="w-full max-w-lg border-blue-100/70 bg-white/93 shadow-xl backdrop-blur-sm">
           <CardHeader className="space-y-2 text-center">
           <p className="text-sm font-bold uppercase tracking-[0.2em] text-primary">Registro</p>
-          <CardTitle className="text-3xl font-bold text-[#08204A]">Crear usuario</CardTitle>
-          <p className="text-sm font-medium text-slate-600">Registro conectado al backend del sistema.</p>
+          <CardTitle className="text-3xl font-bold text-[#08204A]">Crear cuenta de investigador</CardTitle>
+          <p className="text-sm font-medium text-slate-600">
+            El registro está disponible para investigadores. El personal del Comité accede con cuentas
+            provistas por la institución.
+          </p>
         </CardHeader>
 
         <CardContent>
@@ -125,29 +112,6 @@ export default function CrearUsuarioPage() {
               {form.formState.errors.correo ? (
                 <p className="text-xs font-medium text-red-600">{form.formState.errors.correo.message}</p>
               ) : null}
-            </div>
-
-            <div className="space-y-2">
-              <Label className="font-semibold">Rol</Label>
-              <Select
-                value={selectedRole}
-                onValueChange={(value) => {
-                  const role = value as Role;
-                  setSelectedRole(role);
-                  form.setValue("rol", role, { shouldValidate: true });
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccione rol" />
-                </SelectTrigger>
-                <SelectContent>
-                  {roleOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">

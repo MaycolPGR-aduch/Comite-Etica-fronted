@@ -42,20 +42,21 @@ export default function AsignacionEvaluadoresPage() {
     return acc;
   }, {});
 
-  const faltantes = Math.max(0, 2 - asignacionesActuales.length);
+  // Solo puede existir 1 evaluador por expediente (alineación de requerimientos).
+  const faltantes = Math.max(0, 1 - asignacionesActuales.length);
   const evaluadoresDisponiblesParaAsignar = useMemo(
     () => evaluadores.filter((item) => !evaluadoresYaAsignados.has(item.id)),
     [evaluadores, evaluadoresYaAsignados],
   );
   const canSelect = faltantes > 0 && evaluadoresDisponiblesParaAsignar.length > 0;
-  const canSubmit = canSelect && selectedEvaluadorIds.length === faltantes;
+  const canSubmit = canSelect && selectedEvaluadorIds.length === 1;
 
   const submit = async () => {
     if (!canSubmit) return;
 
     const confirmed = await confirm({
-      title: "Asignar evaluadores",
-      description: `Se asignarán ${selectedEvaluadorIds.length} evaluador(es) a este expediente. ¿Deseas continuar?`,
+      title: "Asignar evaluador",
+      description: "Se asignará el evaluador seleccionado a este expediente. ¿Deseas continuar?",
       confirmLabel: "Asignar",
     });
     if (!confirmed) return;
@@ -66,10 +67,10 @@ export default function AsignacionEvaluadoresPage() {
         evaluadorIds: selectedEvaluadorIds,
       });
       setSelectedEvaluadorIds([]);
-      toast.success("Evaluadores asignados", result.message);
+      toast.success("Evaluador asignado", result.message);
     } catch (error) {
       toast.error(
-        "No se pudo asignar evaluadores",
+        "No se pudo asignar el evaluador",
         error instanceof Error ? error.message : undefined,
       );
     }
@@ -91,8 +92,8 @@ export default function AsignacionEvaluadoresPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Asignación de evaluadores"
-        description="Seleccione evaluadores para la asignación manual del expediente."
+        title="Asignación de evaluador"
+        description="Seleccione el evaluador responsable de este expediente. El evaluador asignado será responsable del resultado final."
       />
       <Card>
         <CardContent className="pt-6">
@@ -102,7 +103,7 @@ export default function AsignacionEvaluadoresPage() {
 
           <div className="space-y-3 rounded-md border border-border p-4">
             <p className="text-sm text-foreground">
-              Evaluaciones asignadas: <strong>{asignacionesActuales.length}</strong> / 2
+              Evaluador asignado: <strong>{asignacionesActuales.length}</strong> / 1
             </p>
 
             {asignacionesActuales.length > 0 ? (
@@ -122,23 +123,19 @@ export default function AsignacionEvaluadoresPage() {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Aun no hay evaluadores asignados para este expediente.
+                Aun no hay un evaluador asignado para este expediente.
               </p>
             )}
 
             {faltantes <= 0 ? (
-              <p className="text-sm text-emerald-600">El expediente ya tiene el maximo de 2 evaluadores.</p>
+              <p className="text-sm text-emerald-600">El expediente ya tiene su evaluador asignado.</p>
             ) : (
               <div className="space-y-2">
-                <p className="text-sm text-amber-600">
-                  Seleccione {faltantes} evaluador(es) para completar la asignación.
-                </p>
+                <p className="text-sm text-amber-600">Seleccione el evaluador para este expediente.</p>
                 {canSelect ? (
                   <div className="grid gap-2">
                     {evaluadoresDisponiblesParaAsignar.map((evaluador) => {
                       const checked = selectedEvaluadorIds.includes(evaluador.id);
-                      const selectionFull = selectedEvaluadorIds.length >= faltantes;
-                      const disabled = !checked && selectionFull;
 
                       return (
                         <label
@@ -147,20 +144,9 @@ export default function AsignacionEvaluadoresPage() {
                         >
                           <input
                             checked={checked}
-                            disabled={disabled}
-                            type="checkbox"
-                            onChange={(event) => {
-                              setSelectedEvaluadorIds((current) => {
-                                if (event.target.checked) {
-                                  if (current.includes(evaluador.id)) {
-                                    return current;
-                                  }
-                                  return [...current, evaluador.id];
-                                }
-
-                                return current.filter((id) => id !== evaluador.id);
-                              });
-                            }}
+                            type="radio"
+                            name="evaluador-asignado"
+                            onChange={() => setSelectedEvaluadorIds([evaluador.id])}
                           />
                           <span>{evaluador.nombre}</span>
                           <span className="text-muted-foreground">({evaluador.correo})</span>
@@ -171,15 +157,12 @@ export default function AsignacionEvaluadoresPage() {
                 ) : (
                   <p className="text-sm text-destructive">No hay evaluadores disponibles para asignar.</p>
                 )}
-                <p className="text-xs text-muted-foreground">
-                  Seleccionados: {selectedEvaluadorIds.length} / {faltantes}
-                </p>
               </div>
             )}
           </div>
 
           <Button className="mt-4" disabled={!canSubmit || asignacionMutation.isPending} onClick={submit}>
-            {asignacionMutation.isPending ? "Asignando..." : "Asignar seleccionados"}
+            {asignacionMutation.isPending ? "Asignando..." : "Asignar evaluador"}
           </Button>
 
           {asignacionMutation.isError ? (

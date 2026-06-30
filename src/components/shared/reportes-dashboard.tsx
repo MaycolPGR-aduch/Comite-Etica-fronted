@@ -139,7 +139,11 @@ export function ReportesDashboard({ scopeLabel }: ReportesDashboardProps) {
               loading={isAnyLoading}
               getRowId={(row) => row.evaluadorId}
               columns={[
-                { key: "evaluador", header: "Evaluador ID", cell: (row) => row.evaluadorId },
+                {
+                  key: "evaluador",
+                  header: "Evaluador",
+                  cell: (row) => row.nombre || `Evaluador #${row.evaluadorId}`,
+                },
                 { key: "total", header: "Total", cell: (row) => row.total },
               ]}
               emptyTitle="Sin carga registrada"
@@ -215,6 +219,16 @@ export function ReportesDashboard({ scopeLabel }: ReportesDashboardProps) {
               aria-label="Fecha fin"
             />
           </div>
+
+          {busquedaExpedientes.isError ? (
+            <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
+              <AlertTitle>Error de carga</AlertTitle>
+              <AlertDescription>
+                {(busquedaExpedientes.error as Error | undefined)?.message ||
+                  "No se pudo cargar la búsqueda de expedientes."}
+              </AlertDescription>
+            </Alert>
+          ) : null}
 
           <DataTable<ReporteBusquedaExpediente>
             data={busquedaExpedientes.data ?? []}

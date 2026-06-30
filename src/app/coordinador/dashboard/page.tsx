@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { useDashboardCoordinador } from "@/hooks";
 import { EXPEDIENTE_STATUSES, type Expediente } from "@/types";
-import { DataTable, MetricCard, StatusBadge } from "@/components/shared";
+import { DataTable, MetricCard, StatusBadge, StatusLegend } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function DashboardCoordinadorPage() {
@@ -19,8 +19,9 @@ export default function DashboardCoordinadorPage() {
       </section>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
           <CardTitle>Seguimiento de expedientes admitidos</CardTitle>
+          <StatusLegend />
         </CardHeader>
         <CardContent>
         <DataTable<Expediente>
@@ -45,14 +46,9 @@ export default function DashboardCoordinadorPage() {
                 key: "acciones",
                 header: "Acciones",
                 cell: (row) => (
-                  <div className="flex flex-col gap-1 text-sm">
-                    <Link className="text-primary hover:underline" href={`/coordinador/asignacion/${row.id}`}>
-                      Asignar evaluadores
-                    </Link>
-                    <Link className="text-primary hover:underline" href={`/coordinador/consolidacion/${row.id}`}>
-                      Consolidar dictamen
-                    </Link>
-                  </div>
+                  <Link className="text-primary hover:underline" href={`/coordinador/asignacion/${row.id}`}>
+                    Asignar evaluador
+                  </Link>
                 ),
               },
             ]}

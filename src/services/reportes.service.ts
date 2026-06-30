@@ -63,6 +63,12 @@ const resolveErrorMessage = (error: unknown): string => {
     if (error.response?.status === 403) {
       return "No tienes permisos para acceder a este reporte.";
     }
+    // Sin `response` significa que el navegador nunca recibió una respuesta
+    // (bloqueo de red o de CORS). El backend puede estar fallando del lado
+    // del servidor en esta consulta; no es un problema del cliente.
+    if (!error.response) {
+      return "No se pudo conectar con el servicio de reportes. Es posible que el servidor esté presentando un error; intenta nuevamente más tarde.";
+    }
   }
 
   if (error instanceof Error) {
@@ -158,6 +164,7 @@ export const reportesService = {
         const row = toRecord(item);
         return {
           evaluadorId: toString(row.evaluador_id),
+          nombre: typeof row.nombre === "string" ? row.nombre : undefined,
           total: toNumber(row.total_evaluaciones ?? row.total),
         };
       });

@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { useBandejaSecretaria } from "@/hooks";
 import { EXPEDIENTE_STATUSES, type Expediente } from "@/types";
-import { DataTable, MetricCard, StatusBadge } from "@/components/shared";
+import { DataTable, MetricCard, StatusBadge, StatusLegend } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function BandejaSecretariaPage() {
@@ -19,8 +19,9 @@ export default function BandejaSecretariaPage() {
       </section>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
           <CardTitle>Expedientes recibidos</CardTitle>
+          <StatusLegend />
         </CardHeader>
         <CardContent>
         <DataTable<Expediente>

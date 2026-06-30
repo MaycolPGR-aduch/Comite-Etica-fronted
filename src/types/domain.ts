@@ -18,6 +18,8 @@ export const EXPEDIENTE_STATUSES = [
   "En deliberación",
   "Observado",
   "Aprobado",
+  "Aprobado con observaciones",
+  "Desaprobado",
   "Cerrado",
 ] as const;
 
@@ -249,6 +251,7 @@ export interface ReporteTiempoAtencion {
 
 export interface ReporteCargaEvaluador {
   evaluadorId: string;
+  nombre?: string;
   total: number;
 }
 

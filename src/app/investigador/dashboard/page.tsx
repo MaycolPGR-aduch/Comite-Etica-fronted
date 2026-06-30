@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { useDashboardInvestigador } from "@/hooks";
 import { EXPEDIENTE_STATUSES, type Expediente } from "@/types";
-import { DataTable, MetricCard, StatusBadge, Timeline } from "@/components/shared";
+import { DataTable, MetricCard, StatusBadge, StatusLegend, Timeline } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function InvestigadorDashboardPage() {
@@ -25,8 +25,9 @@ export default function InvestigadorDashboardPage() {
 
       <section className="grid gap-6 xl:grid-cols-3">
         <Card className="xl:col-span-2">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
             <CardTitle>Expedientes recientes</CardTitle>
+            <StatusLegend />
           </CardHeader>
           <CardContent>
             <DataTable<Expediente>

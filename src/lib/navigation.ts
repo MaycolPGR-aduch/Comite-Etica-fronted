@@ -26,7 +26,6 @@ export const roleNavigation: Record<Role, NavItem[]> = {
   coordinador: [
     { href: "/coordinador/dashboard", label: "Dashboard" },
     { href: "/coordinador/dashboard", label: "Asignacion" },
-    { href: "/coordinador/dashboard", label: "Consolidacion" },
     { href: "/coordinador/reportes", label: "Reportes" },
   ],
   evaluador: [

@@ -3,17 +3,23 @@
 import Link from "next/link";
 
 import { useExpedientes } from "@/hooks";
-import { EXPEDIENTE_STATUSES, type Expediente } from "@/types";
-import { DataTable, StatusBadge } from "@/components/shared";
+import { EXPEDIENTE_STATUSES, type Expediente, type ExpedienteStatus } from "@/types";
+import { DataTable, StatusBadge, StatusLegend } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+const ESTADOS_CON_SUBSANACION = new Set<ExpedienteStatus>([
+  "Observado por admisibilidad",
+  "Observado",
+]);
 
 export default function MisExpedientesPage() {
   const { data = [], isLoading } = useExpedientes();
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
         <CardTitle>Mis expedientes</CardTitle>
+        <StatusLegend />
       </CardHeader>
       <CardContent>
         <DataTable<Expediente>
@@ -51,13 +57,14 @@ export default function MisExpedientesPage() {
                   <Link href={`/investigador/expedientes/${row.id}`} className="text-primary hover:underline">
                     Ver detalle
                   </Link>
-                  <Link
-                    href={`/investigador/expedientes/${row.id}/subsanacion`}
-                    className="text-primary hover:underline"
-                  >
-                    Subsanar
-                  </Link>
-                  <span className="text-slate-500">Dictamen disponible cuando sea emitido</span>
+                  {ESTADOS_CON_SUBSANACION.has(row.estado) ? (
+                    <Link
+                      href={`/investigador/expedientes/${row.id}/subsanacion`}
+                      className="text-primary hover:underline"
+                    >
+                      Subsanar
+                    </Link>
+                  ) : null}
                 </div>
               ),
             },

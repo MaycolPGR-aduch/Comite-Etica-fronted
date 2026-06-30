@@ -42,7 +42,8 @@ export const asignacionService = {
 
   async asignarEvaluadores(payload: AsignacionPayload): Promise<{ message: string }> {
     const expedienteId = parseNumericId(payload.expedienteId, "expediente");
-    const objetivoTotal = 2;
+    // Solo puede existir 1 evaluador por expediente (alineación de requerimientos).
+    const objetivoTotal = 1;
 
     const evaluaciones = await evaluacionService.list();
     const asignadas = evaluaciones.filter(
@@ -51,7 +52,7 @@ export const asignacionService = {
 
     const restantes = objetivoTotal - asignadas.length;
     if (restantes <= 0) {
-      return { message: "Este expediente ya tiene 2 evaluadores asignados." };
+      return { message: "Este expediente ya tiene un evaluador asignado." };
     }
 
     const evaluadoresAsignadosIds = new Set(asignadas.map((item) => item.evaluadorId));
@@ -70,7 +71,7 @@ export const asignacionService = {
     }
 
     return {
-      message: `Se asignaron ${asignacionesEfectivas.length} evaluador(es) manualmente.`,
+      message: "Se asignó el evaluador manualmente.",
     };
   },
 };

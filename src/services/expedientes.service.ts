@@ -94,10 +94,19 @@ const statusMap: Record<string, ExpedienteStatus> = {
   evaluaciones_completas: "Evaluaciones completas",
   en_deliberacion: "En deliberación",
   aprobado: "Aprobado",
+  // Preparado para cuando el backend emita los nuevos estados de resultado
+  // (alineación de requerimientos: Aprobado / Aprobado con observaciones / Desaprobado).
+  aprobado_con_observaciones: "Aprobado con observaciones",
+  desaprobado: "Desaprobado",
   archivado: "Cerrado",
 };
 
-const terminalStatuses = new Set<ExpedienteStatus>(["Aprobado", "Cerrado"]);
+const terminalStatuses = new Set<ExpedienteStatus>([
+  "Aprobado",
+  "Aprobado con observaciones",
+  "Desaprobado",
+  "Cerrado",
+]);
 const derivableWorkflowStatuses = new Set<ExpedienteStatus>([
   "Admitido",
   "Asignado",
