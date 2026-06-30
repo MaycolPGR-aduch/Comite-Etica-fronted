@@ -42,7 +42,7 @@ export default function AsignacionEvaluadoresPage() {
     return acc;
   }, {});
 
-  const faltantes = Math.max(0, 2 - asignacionesActuales.length);
+  const faltantes = Math.max(0, 1 - asignacionesActuales.length);
   const evaluadoresDisponiblesParaAsignar = useMemo(
     () => evaluadores.filter((item) => !evaluadoresYaAsignados.has(item.id)),
     [evaluadores, evaluadoresYaAsignados],
@@ -102,7 +102,7 @@ export default function AsignacionEvaluadoresPage() {
 
           <div className="space-y-3 rounded-md border border-border p-4">
             <p className="text-sm text-foreground">
-              Evaluaciones asignadas: <strong>{asignacionesActuales.length}</strong> / 2
+              Evaluaciones asignadas: <strong>{asignacionesActuales.length}</strong> / 1
             </p>
 
             {asignacionesActuales.length > 0 ? (
@@ -127,7 +127,7 @@ export default function AsignacionEvaluadoresPage() {
             )}
 
             {faltantes <= 0 ? (
-              <p className="text-sm text-emerald-600">El expediente ya tiene el maximo de 2 evaluadores.</p>
+              <p className="text-sm text-emerald-600">El expediente ya tiene su evaluador asignado.</p>
             ) : (
               <div className="space-y-2">
                 <p className="text-sm text-amber-600">
