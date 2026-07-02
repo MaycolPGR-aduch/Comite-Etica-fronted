@@ -192,10 +192,18 @@ const statusMap: Record<string, ExpedienteStatus> = {
   evaluaciones_completas: "Evaluaciones completas",
   en_deliberacion: "En deliberación",
   aprobado: "Aprobado",
+  aprobado_observaciones: "Aprobado con observaciones",
+  no_aprobado: "No aprobado",
+  observado: "Observado",
   archivado: "Cerrado",
 };
 
-const terminalStatuses = new Set<ExpedienteStatus>(["Aprobado", "Cerrado"]);
+const terminalStatuses = new Set<ExpedienteStatus>([
+  "Aprobado",
+  "Aprobado con observaciones",
+  "No aprobado",
+  "Cerrado",
+]);
 const derivableWorkflowStatuses = new Set<ExpedienteStatus>([
   "Admitido",
   "Asignado",
@@ -395,6 +403,9 @@ const toDomainExpediente = (
     documentos: resolveDocumentos(documentos),
     observacionesPendientes: 0,
     evaluadoresAsignados: [],
+    evaluacionRubricaUrl: dto.evaluacion_rubrica_url ?? null,
+    evaluacionDictamenUrl: dto.evaluacion_dictamen_url ?? null,
+    evaluacionResultado: dto.evaluacion_resultado ?? null,
   };
 };
 

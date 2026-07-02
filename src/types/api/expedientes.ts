@@ -8,6 +8,9 @@ export interface ExpedienteResponseDto {
   investigador_nombre?: string | null;
   estado: string;
   fecha_envio: string | null;
+  evaluacion_rubrica_url?: string | null;
+  evaluacion_dictamen_url?: string | null;
+  evaluacion_resultado?: string | null;
   created_at: string;
 }
 

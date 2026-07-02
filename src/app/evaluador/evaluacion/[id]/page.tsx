@@ -73,6 +73,13 @@ export default function EvaluacionEticaPage() {
   const [observacionesGenerales, setObservacionesGenerales] = useState("");
   const [initialized, setInitialized] = useState(false);
   const [documentoError, setDocumentoError] = useState<string | null>(null);
+  const [descargandoRubrica, setDescargandoRubrica] = useState(false);
+  const [descargandoDictamen, setDescargandoDictamen] = useState(false);
+
+  const evaluacionCompleta = data?.evaluacion.completa ?? false;
+  const rubricaPdfUrl = data?.evaluacion.rubricaPdfUrl ?? null;
+  const dictamenPdfUrl = data?.evaluacion.dictamenPdfUrl ?? null;
+  const resultadoEvaluacion = data?.evaluacion.resultado ?? null;
 
   // Precarga: inicializa puntajes/observaciones con lo ya guardado (si existe).
   useEffect(() => {
@@ -212,6 +219,35 @@ export default function EvaluacionEticaPage() {
       );
     }
   };
+
+  const descargarPdf = async (tipo: "rubrica" | "dictamen") => {
+    const setLoading = tipo === "rubrica" ? setDescargandoRubrica : setDescargandoDictamen;
+    setLoading(true);
+    try {
+      const token = (await import("@/services/auth-session")).getAuthToken();
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001/api/v1"}/evaluacion/${evaluacionId}/descargar-${tipo}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+      );
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${tipo}_${evaluacionId}.pdf`;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Error", `No se pudo descargar el ${tipo === "rubrica" ? "informe" : "dictamen"} PDF.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const descargarRubricaPdf = () => descargarPdf("rubrica");
+  const descargarDictamenPdf = () => descargarPdf("dictamen");
 
   const descargarDocumentoPrincipal = async (mode: "preview" | "download") => {
     if (!documentoPrincipal) return;
@@ -550,25 +586,63 @@ export default function EvaluacionEticaPage() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-3">
-                  <Button
-                    onClick={declararConflicto}
-                    disabled={conflictoMutation.isPending || mutation.isPending}
-                    variant="destructive"
-                  >
-                    Declarar conflicto
-                  </Button>
-                  <Button
-                    onClick={() => submit(false)}
-                    disabled={mutation.isPending}
-                    variant="outline"
-                  >
-                    Guardar avance
-                  </Button>
-                  <Button onClick={() => submit(true)} disabled={mutation.isPending}>
-                    Enviar evaluación
-                  </Button>
-                </div>
+                {evaluacionCompleta ? (
+                  <div className="space-y-3">
+                    <Alert className="border-green-200 bg-green-50 text-green-800">
+                      <AlertTitle>Evaluación enviada</AlertTitle>
+                      <AlertDescription>
+                        Esta evaluación ya fue enviada. Resultado:{" "}
+                        <strong>
+                          {resultadoLabel[data?.evaluacion.resultado ?? "no_aprobado"]}
+                        </strong>{" "}
+                        · Puntaje: {data?.evaluacion.puntajeTotal ?? total} /{" "}
+                        {puntajeTotalMax}
+                      </AlertDescription>
+                    </Alert>
+                    <div className="flex flex-wrap gap-2">
+                      {resultadoEvaluacion !== "aprobado" && rubricaPdfUrl && (
+                        <Button
+                          onClick={descargarRubricaPdf}
+                          disabled={descargandoRubrica}
+                          variant="outline"
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          {descargandoRubrica ? "Descargando..." : "Descargar rúbrica PDF"}
+                        </Button>
+                      )}
+                      {resultadoEvaluacion !== "no_aprobado" && dictamenPdfUrl && (
+                        <Button
+                          onClick={descargarDictamenPdf}
+                          disabled={descargandoDictamen}
+                          variant="outline"
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          {descargandoDictamen ? "Descargando..." : "Descargar dictamen PDF"}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-3">
+                    <Button
+                      onClick={declararConflicto}
+                      disabled={conflictoMutation.isPending || mutation.isPending}
+                      variant="destructive"
+                    >
+                      Declarar conflicto
+                    </Button>
+                    <Button
+                      onClick={() => submit(false)}
+                      disabled={mutation.isPending}
+                      variant="outline"
+                    >
+                      Guardar avance
+                    </Button>
+                    <Button onClick={() => submit(true)} disabled={mutation.isPending}>
+                      Enviar evaluación
+                    </Button>
+                  </div>
+                )}
               </>
             ) : null}
 

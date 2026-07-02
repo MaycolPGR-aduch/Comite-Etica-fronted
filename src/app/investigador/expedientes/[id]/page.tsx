@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
+import { Download } from "lucide-react";
 
 import {
   useDescargarArchivoDictamen,
@@ -12,6 +13,7 @@ import {
 } from "@/hooks";
 import { getRequiredDocumentsByTipoTramite } from "@/lib/document-requirements";
 import { DOCUMENT_UPLOAD_ACCEPTED_EXTENSIONS, expedientesService } from "@/services/expedientes.service";
+import { getAuthToken } from "@/services/auth-session";
 import { DocumentChecklist, ErrorState, PageHeader, PageSkeleton, StatusBadge, Timeline } from "@/components/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -19,6 +21,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
 import type { Documento } from "@/types";
+
+// Etiquetas legibles para el resultado de la evaluación (rúbrica).
+const RESULTADO_EVALUACION_LABELS: Record<string, string> = {
+  aprobado: "Aprobado",
+  aprobado_observaciones: "Aprobado con observaciones",
+  no_aprobado: "No aprobado",
+};
 
 export default function DetalleExpedientePage() {
   const params = useParams<{ id: string }>();
@@ -28,6 +37,8 @@ export default function DetalleExpedientePage() {
   const descargarDictamenMutation = useDescargarArchivoDictamen();
   const registrarDocumentoMutation = useRegistrarDocumentoExpediente();
   const [dictamenError, setDictamenError] = useState<string | null>(null);
+  const [descargandoInforme, setDescargandoInforme] = useState(false);
+  const [descargandoDictamenEval, setDescargandoDictamenEval] = useState(false);
 
   if (isLoading) {
     return <PageSkeleton blocks={3} />;
@@ -141,6 +152,32 @@ export default function DetalleExpedientePage() {
     }
   };
 
+  const descargarPdfEvaluacion = async (tipo: "informe" | "dictamen") => {
+    const setLoading = tipo === "informe" ? setDescargandoInforme : setDescargandoDictamenEval;
+    setLoading(true);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001/api/v1"}/expedientes/${expedienteId}/descargar-evaluacion/${tipo}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+      );
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${tipo}_${expedienteId}.pdf`;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Error", `No se pudo descargar el ${tipo} PDF.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -246,8 +283,43 @@ export default function DetalleExpedientePage() {
                   )}
                   {dictamenError ? <p className="text-destructive">{dictamenError}</p> : null}
                 </>
+              ) : expediente.evaluacionResultado ? (
+                <p>
+                  <strong>Resultado:</strong>{" "}
+                  {RESULTADO_EVALUACION_LABELS[expediente.evaluacionResultado] ?? expediente.evaluacionResultado}
+                </p>
               ) : (
                 <p className="text-muted-foreground">Dictamen aún no disponible.</p>
+              )}
+              {/* Documentos de la evaluación (rúbrica/dictamen automáticos): no dependen
+                  de un registro Dictamen manual, solo del resultado de la evaluación. */}
+              {(expediente.evaluacionResultado === "aprobado" || expediente.evaluacionResultado === "aprobado_observaciones" || expediente.evaluacionResultado === "no_aprobado") && (
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {expediente.evaluacionResultado !== "aprobado" && expediente.evaluacionRubricaUrl && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => descargarPdfEvaluacion("informe")}
+                      disabled={descargandoInforme}
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      {descargandoInforme ? "Descargando..." : "Descargar rúbrica de evaluación"}
+                    </Button>
+                  )}
+                  {expediente.evaluacionResultado !== "no_aprobado" && expediente.evaluacionDictamenUrl && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => descargarPdfEvaluacion("dictamen")}
+                      disabled={descargandoDictamenEval}
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      {descargandoDictamenEval ? "Descargando..." : "Descargar dictamen de evaluación"}
+                    </Button>
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>

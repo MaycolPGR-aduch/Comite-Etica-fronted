@@ -43,9 +43,6 @@ export default function DashboardCoordinadorPage() {
                     <Link className="text-primary hover:underline" href={`/coordinador/asignacion/${row.id}`}>
                       Asignar evaluadores
                     </Link>
-                    <Link className="text-primary hover:underline" href={`/coordinador/consolidacion/${row.id}`}>
-                      Consolidar dictamen
-                    </Link>
                   </div>
                 ),
               },

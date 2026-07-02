@@ -1,3 +1,4 @@
+export * from "./chat-thread";
 export * from "./confirm-dialog";
 export * from "./countdown-deadline";
 export * from "./empty-state";

@@ -6,11 +6,12 @@ Frontend del Sistema Web para la Gestion y Evaluacion de Protocolos del Comite d
 
 - Aplicacion funcional con Next.js App Router y TypeScript estricto.
 - Arquitectura separada por capas: vistas, componentes, hooks, servicios, tipos y mocks.
-- Integracion real con el backend ya habilitada en los modulos principales: autenticacion, usuarios, expedientes, evaluacion, dictamen, notificaciones, IA y reportes.
+- Integracion real con el backend ya habilitada en los modulos principales: autenticacion, usuarios, expedientes, evaluacion (rubrica de 20 pts con 3 estados), dictamen, notificaciones, chat, IA y reportes.
+- Evaluacion con rubrica oficial de 7 criterios: 1 solo evaluador por expediente, resultado automatico (Aprobado / Aprobado con observaciones / No aprobado) y dictamen derivado sin consolidacion del coordinador.
+- Chat directo solicitante ↔ secretaria (polling, sin WebSockets): vista "Consultas" para estudiantes/investigadores y bandeja "Chat" para secretaria con nombre y codigo del estudiante.
+- Descarga de documentos de evaluacion segun resultado: rubrica PDF y/o dictamen PDF, visibles para el solicitante y el evaluador.
 - La configuracion institucional sigue basada en mock porque no depende de endpoints estables.
-- Las descargas de documentos y dictamen usan rutas proxy server-side en Next.js para evitar CORS y redirects directos a S3.
-- Las tablas principales de expedientes y evaluaciones ya incluyen busqueda local y filtros reutilizables.
-- Validado recientemente con `npm run lint` y `npm run build`.
+- Las tablas principales incluyen busqueda local y filtro por fecha de envio.
 
 ## Stack
 
@@ -28,16 +29,17 @@ Frontend del Sistema Web para la Gestion y Evaluacion de Protocolos del Comite d
 
 Cubrir el flujo completo del expediente etico:
 
-1. Registro del expediente
+1. Registro del expediente (formulario dinamico por modalidad)
 2. Revision administrativa
-3. Asignacion de evaluadores
-4. Evaluacion etica
-5. Consolidacion y dictamen
+3. Asignacion de 1 evaluador
+4. Evaluacion etica con rubrica (20 pts, 7 criterios)
+5. Dictamen automatico segun el puntaje (3 estados)
 6. Subsanacion y reenvio
+7. Cambio de titulo (solo proyectos aprobados)
 
 ## Roles implementados
 
-- Investigador
+- Estudiante de pregrado / Estudiante de postgrado / Investigador (solicitantes, misma vista)
 - Secretaria tecnica
 - Coordinador
 - Evaluador
@@ -58,24 +60,29 @@ Cubrir el flujo completo del expediente etico:
 
 ### Privadas por rol
 
-#### Investigador
+#### Investigador (y estudiantes)
 
 - `/investigador/dashboard`
 - `/investigador/expedientes`
 - `/investigador/expedientes/nuevo`
 - `/investigador/expedientes/[id]`
 - `/investigador/expedientes/[id]/subsanacion`
+- `/investigador/cambio-titulo`
+- `/investigador/consultas` (chat con secretaria)
 
 #### Secretaria
 
 - `/secretaria/bandeja`
 - `/secretaria/revision/[id]`
+- `/secretaria/chat` (bandeja de conversaciones con solicitantes)
 
 #### Coordinador
 
 - `/coordinador/dashboard`
 - `/coordinador/asignacion/[id]`
-- `/coordinador/consolidacion/[id]`
+
+> La vista de consolidacion se elimino: con la rubrica el dictamen es automatico y el
+> coordinador solo ve el estado final del expediente.
 
 #### Evaluador
 
@@ -127,11 +134,11 @@ La app sigue una estrategia mock-first, pero con migracion progresiva a REST rea
 ### Servicios existentes
 
 - `auth.service.ts`
+- `chat.service.ts`
 - `expedientes.service.ts`
 - `revision-administrativa.service.ts`
 - `asignacion.service.ts`
 - `evaluacion.service.ts`
-- `consolidacion.service.ts`
 - `dashboard.service.ts`
 - `configuracion.service.ts`
 - `dictamen.service.ts`
@@ -181,15 +188,33 @@ La app sigue una estrategia mock-first, pero con migracion progresiva a REST rea
 - `GET /api/v1/expedientes/{expediente_id}/documentos/{documento_id}/descargar`
 - Estas rutas se exponen como proxy local en Next.js para evitar CORS.
 
-#### Evaluacion
+#### Evaluacion (rubrica de 20 pts)
 
+- `GET /api/v1/evaluacion/rubrica` (catalogo de 7 criterios + umbrales)
 - `GET /api/v1/evaluacion/`
 - `GET /api/v1/evaluacion/mis-evaluaciones`
 - `GET /api/v1/evaluacion/{evaluacion_id}`
-- `PUT /api/v1/evaluacion/{evaluacion_id}`
+- `PUT /api/v1/evaluacion/{evaluacion_id}` (criterios + completa → calcula resultado y genera PDFs)
+- `GET /api/v1/evaluacion/{evaluacion_id}/descargar-rubrica`
+- `GET /api/v1/evaluacion/{evaluacion_id}/descargar-dictamen`
 - `POST /api/v1/evaluacion/{evaluacion_id}/conflicto`
 - `POST /api/v1/evaluacion/{evaluacion_id}/guardar-parcial`
-- `POST /api/v1/evaluacion/expediente/{expediente_id}/asignar`
+- `POST /api/v1/evaluacion/expediente/{expediente_id}/asignar` (1 evaluador por expediente)
+
+#### Documentos de evaluacion (lado solicitante)
+
+- `GET /api/v1/expedientes/{expediente_id}/descargar-evaluacion/informe` (rubrica PDF)
+- `GET /api/v1/expedientes/{expediente_id}/descargar-evaluacion/dictamen` (dictamen PDF)
+- Segun el resultado: aprobado → solo dictamen; aprobado con observaciones → ambos; no aprobado → solo rubrica.
+
+#### Chat solicitante ↔ secretaria
+
+- `GET /api/v1/chat/mios` / `POST /api/v1/chat/mios` / `GET /api/v1/chat/mios/no-leidos` (solicitante)
+- `GET /api/v1/chat/conversaciones` (bandeja con nombre, codigo y no-leidos)
+- `GET /api/v1/chat/solicitantes` (para iniciar conversacion)
+- `GET /api/v1/chat/no-leidos`
+- `GET /api/v1/chat/{solicitante_id}` / `POST /api/v1/chat/{solicitante_id}` (secretaria)
+- Actualizacion por polling: hilo 4s, bandeja 10s, contadores 20s.
 
 #### Dictamen
 
@@ -218,7 +243,6 @@ La app sigue una estrategia mock-first, pero con migracion progresiva a REST rea
 
 - `GET /api/v1/ia/preanalisis/{expediente_id}`
 - `GET /api/v1/ia/detectar-inconsistencias/{expediente_id}`
-- `GET /api/v1/ia/detectar-riesgos/{expediente_id}`
 - `GET /api/v1/ia/generar-observaciones/{expediente_id}`
 - `GET /api/v1/ia/resumen/{expediente_id}`
 
@@ -242,33 +266,37 @@ La app sigue una estrategia mock-first, pero con migracion progresiva a REST rea
 
 ### Login
 
-- Acceso con selector de rol.
-- Redireccion segun el perfil autenticado.
+- Login unificado por email y contraseña (sin selector de rol).
+- Redireccion segun el perfil autenticado; los 3 roles solicitantes comparten la vista de investigador.
 
-### Investigador
+### Investigador / Estudiantes
 
-- Dashboard con metricas, expedientes recientes y timeline.
-- Nuevo expediente con wizard de 4 pasos.
-- Mis expedientes con busqueda y filtros.
-- Detalle con checklist documental, observaciones, historial y dictamen.
+- Dashboard con metricas, proyectos recientes y timeline.
+- Nuevo proyecto con formulario dinamico de 3 pasos segun modalidad (pregrado/postgrado/interno).
+- Mis proyectos con busqueda y filtro por fecha de envio.
+- Detalle con checklist documental, observaciones, historial y descarga de rubrica/dictamen segun resultado.
+- Cambio de titulo (solo proyectos aprobados; el N° de acta se deriva del codigo).
+- Consultas: chat directo con la secretaria.
 - Subsanacion y reenvio.
 
 ### Secretaria tecnica
 
-- Bandeja con metricas y expedientes recibidos.
+- Bandeja con metricas y expedientes recibidos (filtro por solicitante y fecha).
 - Revision administrativa con acciones de admitir o devolver.
+- Chat con solicitantes: bandeja de conversaciones con nombre y codigo del estudiante, y puede iniciar conversaciones nuevas.
 
 ### Coordinador
 
 - Dashboard con seguimiento operativo.
-- Asignacion manual de exactamente 2 evaluadores.
-- Consolidacion comparativa y firma de dictamen.
+- Asignacion manual de 1 evaluador por expediente.
+- El dictamen es automatico (derivado de la rubrica); el coordinador solo ve el estado final.
 
 ### Evaluador
 
 - Bandeja de evaluaciones asignadas.
-- Evaluacion etica en dos columnas.
-- Guardado parcial, envio final y declaracion de conflicto.
+- Evaluacion con rubrica oficial: 7 criterios, total en vivo sobre 20 y resultado previsto.
+- Al enviar se calcula el resultado, se generan los PDFs y puede descargarlos.
+- Guardado parcial y declaracion de conflicto.
 
 ### Administrador
 
@@ -280,13 +308,14 @@ La app sigue una estrategia mock-first, pero con migracion progresiva a REST rea
 
 Los componentes mas reutilizados viven en `src/components/shared`:
 
-- `DataTable`
+- `DataTable` (con filtro opcional por fecha)
 - `MetricCard`
-- `StatusBadge`
+- `StatusBadge` (incluye los 3 estados de resultado)
 - `Timeline`
 - `DocumentChecklist`
 - `EmptyState`
 - `ReportesDashboard`
+- `ChatThread` (hilo de chat compartido por solicitante y secretaria)
 
 ## UI y experiencia
 
@@ -302,10 +331,10 @@ Existe `NEXT_PUBLIC_API_URL` para apuntar al backend.
 Ejemplo:
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+NEXT_PUBLIC_API_URL=https://comite-backend.onrender.com/api/v1
 ```
 
-Si no se define, se usa:
+Si no se define, se usa por defecto:
 
 - `https://comite-backend.onrender.com/api/v1`
 
@@ -324,8 +353,11 @@ npm install
 
 ### Desarrollo
 
+> **Importante:** usar SIEMPRE el flag `--webpack`. Turbopack (el default de `npm run dev`)
+> crashea en bucle en este proyecto ("Next.js package not found") y recarga la pagina sin parar.
+
 ```bash
-npm run dev
+npx next dev --webpack
 ```
 
 Abrir: [http://localhost:3000](http://localhost:3000)

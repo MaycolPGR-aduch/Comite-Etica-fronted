@@ -25,12 +25,13 @@ const titleBySegment: Record<string, string> = {
   revision: "Revision administrativa",
   asignacion: "Asignacion de evaluadores",
   evaluacion: "Evaluacion etica",
-  consolidacion: "Consolidacion y dictamen",
   reportes: "Reportes",
   usuarios: "Usuarios",
   configuracion: "Configuracion",
   subsanacion: "Subsanacion",
   perfil: "Mi perfil",
+  consultas: "Consultas",
+  chat: "Chat",
 };
 
 const resolveTitle = (pathname: string) => {

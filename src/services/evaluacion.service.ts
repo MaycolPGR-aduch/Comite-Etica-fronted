@@ -54,6 +54,8 @@ export interface EvaluacionBandejaItem {
   criterios: CriterioEvaluado[];
   puntajeTotal: number | null;
   resultado: ResultadoEvaluacion | null;
+  rubricaPdfUrl?: string | null;
+  dictamenPdfUrl?: string | null;
   createdAt: string;
   estado: "Completada" | "En progreso" | "Conflicto de interes";
 }
@@ -168,6 +170,8 @@ const toBandejaItem = (dto: EvaluacionResponseDto): EvaluacionBandejaItem => ({
   criterios: (dto.criterios ?? []).map(toCriterioEvaluado),
   puntajeTotal: dto.puntaje_total ?? null,
   resultado: toResultado(dto.resultado),
+  rubricaPdfUrl: dto.rubrica_pdf_url ?? null,
+  dictamenPdfUrl: dto.dictamen_pdf_url ?? null,
   createdAt: dto.created_at,
   estado: resolveEstado(dto.completa, dto.conflicto_interes),
 });

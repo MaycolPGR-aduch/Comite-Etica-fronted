@@ -1,5 +1,6 @@
 export * from "./domain";
 export * from "./api/auth";
+export * from "./api/chat";
 export * from "./api/dictamen";
 export * from "./api/evaluacion";
 export * from "./api/expedientes";

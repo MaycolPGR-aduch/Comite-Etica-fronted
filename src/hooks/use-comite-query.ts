@@ -5,9 +5,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   asignacionService,
   authService,
+  chatService,
   configService,
   configuracionService,
-  consolidacionService,
   dashboardService,
   dictamenService,
   evaluacionService,
@@ -42,10 +42,6 @@ export const queryKeys = {
   rubrica: ["rubrica"] as const,
   asignacionContexto: (id: string) => ["asignacion", id] as const,
   evaluadores: ["evaluadores"] as const,
-  consolidacion: (id: string) => ["consolidacion", id] as const,
-  dictamenes: ["dictamenes"] as const,
-  dictamen: (id: string) => ["dictamen", id] as const,
-  dictamenesExpediente: (expedienteId: string) => ["dictamenes", "expediente", expedienteId] as const,
   configuracion: ["configuracion"] as const,
   profile: ["auth", "profile"] as const,
   notificaciones: (filter?: "all" | "unread") => ["notificaciones", filter ?? "all"] as const,
@@ -73,7 +69,90 @@ export const queryKeys = {
     ] as const,
   users: ["users"] as const,
   user: (id: string) => ["users", id] as const,
+  chatMiHilo: ["chat", "mios"] as const,
+  chatMisNoLeidos: ["chat", "mios", "no-leidos"] as const,
+  chatConversaciones: ["chat", "conversaciones"] as const,
+  chatSolicitantes: ["chat", "solicitantes"] as const,
+  chatHilo: (solicitanteId: string) => ["chat", "hilo", solicitanteId] as const,
+  chatTotalNoLeidos: ["chat", "no-leidos"] as const,
 };
+
+// ==================== CHAT SOLICITANTE-SECRETARÍA ====================
+// Polling: hilo abierto 4s, bandeja 10s, badges 20s (sin WebSockets).
+
+export const useChatMiHilo = (enabled = true) =>
+  useQuery({
+    queryKey: queryKeys.chatMiHilo,
+    queryFn: () => chatService.getMiHilo(),
+    enabled,
+    refetchInterval: 4000,
+    retry: false,
+  });
+
+export const useChatMisNoLeidos = (enabled = true) =>
+  useQuery({
+    queryKey: queryKeys.chatMisNoLeidos,
+    queryFn: () => chatService.getMisNoLeidos(),
+    enabled,
+    refetchInterval: 20000,
+    retry: false,
+  });
+
+export const useEnviarMensajeSolicitante = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (texto: string) => chatService.enviarComoSolicitante(texto),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.chatMiHilo });
+    },
+  });
+};
+
+export const useChatConversaciones = (enabled = true) =>
+  useQuery({
+    queryKey: queryKeys.chatConversaciones,
+    queryFn: () => chatService.getConversaciones(),
+    enabled,
+    refetchInterval: 10000,
+    retry: false,
+  });
+
+export const useChatSolicitantes = (enabled = true) =>
+  useQuery({
+    queryKey: queryKeys.chatSolicitantes,
+    queryFn: () => chatService.getSolicitantes(),
+    enabled,
+  });
+
+export const useChatHilo = (solicitanteId: string | null) =>
+  useQuery({
+    queryKey: queryKeys.chatHilo(solicitanteId ?? ""),
+    queryFn: () => chatService.getHiloDeSolicitante(solicitanteId as string),
+    enabled: Boolean(solicitanteId),
+    refetchInterval: 4000,
+    retry: false,
+  });
+
+export const useEnviarMensajeSecretaria = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ solicitanteId, texto }: { solicitanteId: string; texto: string }) =>
+      chatService.enviarComoSecretaria(solicitanteId, texto),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.chatHilo(variables.solicitanteId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.chatConversaciones });
+    },
+  });
+};
+
+export const useChatTotalNoLeidos = (enabled = true) =>
+  useQuery({
+    queryKey: queryKeys.chatTotalNoLeidos,
+    queryFn: () => chatService.getTotalNoLeidos(),
+    enabled,
+    refetchInterval: 20000,
+    retry: false,
+  });
 
 export const useLogin = () =>
   useMutation({
@@ -435,101 +514,6 @@ export const useGuardarRubrica = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.evaluacion(payload.evaluacionId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.bandejaEvaluador });
       queryClient.invalidateQueries({ queryKey: queryKeys.evaluaciones });
-    },
-  });
-};
-
-export const useConsolidacion = (id: string) =>
-  useQuery({
-    queryKey: queryKeys.consolidacion(id),
-    queryFn: () => consolidacionService.getComparativa(id),
-    enabled: Boolean(id),
-  });
-
-export const useDictamenes = () =>
-  useQuery({
-    queryKey: queryKeys.dictamenes,
-    queryFn: () => consolidacionService.listDictamenes(),
-  });
-
-export const useDictamenById = (id: string) =>
-  useQuery({
-    queryKey: queryKeys.dictamen(id),
-    queryFn: () => consolidacionService.getDictamenById(id),
-    enabled: Boolean(id),
-  });
-
-export const useDictamenesPorExpediente = (expedienteId: string) =>
-  useQuery({
-    queryKey: queryKeys.dictamenesExpediente(expedienteId),
-    queryFn: () => consolidacionService.getDictamenesByExpediente(expedienteId),
-    enabled: Boolean(expedienteId),
-  });
-
-export const useGenerarDictamen = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      expedienteId,
-      decisionFinal,
-      resumen,
-    }: {
-      expedienteId: string;
-      decisionFinal: "Aprobado" | "Observado";
-      resumen: string;
-    }) => consolidacionService.generarDictamen({ expedienteId, decisionFinal, resumen }),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.dictamenes });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dictamenesExpediente(variables.expedienteId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.consolidacion(variables.expedienteId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.expediente(variables.expedienteId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardInvestigador });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardCoordinador });
-    },
-  });
-};
-
-export const useActualizarDictamen = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (payload: {
-      dictamenId: string;
-      contenido?: string;
-      firmado?: boolean;
-      expedienteId: string;
-    }) =>
-      consolidacionService.actualizarDictamen(payload.dictamenId, {
-        contenido: payload.contenido,
-        firmado: payload.firmado,
-      }),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.dictamenes });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dictamen(variables.dictamenId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dictamenesExpediente(variables.expedienteId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.consolidacion(variables.expedienteId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.expediente(variables.expedienteId) });
-    },
-  });
-};
-
-export const useFirmarDictamen = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (payload: {
-      dictamenId: string;
-      expedienteId: string;
-    }) => consolidacionService.firmarDictamen(payload.dictamenId),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.dictamenes });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dictamen(variables.dictamenId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dictamenesExpediente(variables.expedienteId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.consolidacion(variables.expedienteId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.expediente(variables.expedienteId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardInvestigador });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardCoordinador });
     },
   });
 };

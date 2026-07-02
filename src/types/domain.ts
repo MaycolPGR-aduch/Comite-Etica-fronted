@@ -121,11 +121,6 @@ export interface Evaluacion {
   updatedAt: string;
 }
 
-export interface EvaluacionConsolidacion extends Evaluacion {
-  completa: boolean;
-  conflictoInteres: boolean;
-}
-
 export interface Dictamen {
   id?: string;
   expedienteId: string;
@@ -155,6 +150,9 @@ export interface Expediente {
   documentos: Documento[];
   observacionesPendientes: number;
   evaluadoresAsignados: string[];
+  evaluacionRubricaUrl?: string | null;
+  evaluacionDictamenUrl?: string | null;
+  evaluacionResultado?: string | null;
 }
 
 export interface Metrica {
@@ -202,18 +200,6 @@ export interface ConfiguracionCatalogos {
   documentosRequeridos: string[];
   estados: ExpedienteStatus[];
   plantillasNotificacion: string[];
-}
-
-export interface ConsolidacionResultado {
-  expediente: Expediente;
-  evaluaciones: EvaluacionConsolidacion[];
-  evaluacion1?: EvaluacionConsolidacion;
-  evaluacion2?: EvaluacionConsolidacion;
-  puedeGenerarDictamen: boolean;
-  mensajeValidacion?: string;
-  coincidencias: string[];
-  discrepancias: string[];
-  dictamen?: Dictamen;
 }
 
 export interface Notificacion {

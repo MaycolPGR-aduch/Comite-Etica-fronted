@@ -39,6 +39,8 @@ export interface EvaluacionResponseDto {
   criterios?: CriterioEvaluacionResponseDto[];
   puntaje_total?: number | null;
   resultado?: string | null;
+  rubrica_pdf_url?: string | null;
+  dictamen_pdf_url?: string | null;
   created_at: string;
 }
 

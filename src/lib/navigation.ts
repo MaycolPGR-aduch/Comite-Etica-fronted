@@ -21,6 +21,7 @@ const solicitanteNav: NavItem[] = [
   { href: "/investigador/expedientes/nuevo", label: "Nuevo proyecto" },
   { href: "/investigador/cambio-titulo", label: "Cambiar título" },
   { href: "/investigador/expedientes", label: "Mis proyectos" },
+  { href: "/investigador/consultas", label: "Consultas" },
 ];
 
 export const roleNavigation: Record<Role, NavItem[]> = {
@@ -30,11 +31,11 @@ export const roleNavigation: Record<Role, NavItem[]> = {
   secretaria: [
     { href: "/secretaria/bandeja", label: "Bandeja" },
     { href: "/secretaria/bandeja", label: "Revision administrativa" },
+    { href: "/secretaria/chat", label: "Chat" },
   ],
   coordinador: [
     { href: "/coordinador/dashboard", label: "Dashboard" },
     { href: "/coordinador/dashboard", label: "Asignacion" },
-    { href: "/coordinador/dashboard", label: "Consolidacion" },
     { href: "/coordinador/reportes", label: "Reportes" },
   ],
   evaluador: [
